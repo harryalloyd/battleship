@@ -1,5 +1,10 @@
 const socket = io();
 
+// Just for debugging, see if we connect
+socket.on("connect", () => {
+  console.log("Client connected! My ID is:", socket.id);
+});
+
 const messages = document.getElementById("messages");
 const readyBtn = document.getElementById("readyBtn");
 const doneBtn = document.getElementById("doneBtn");
@@ -14,40 +19,39 @@ const maxShips = 3;
 let canPlaceShips = false;
 let isDonePlacing = false;
 
-/**
- * We'll store the coordinates (or cell IDs) of our placed ships
- * so we can distinguish hits from misses.
- */
-const myShipCells = new Set(); // e.g. "player-32", "opponent-47", etc.
+// Where we track which cells on "my" board have ships
+const myShipCells = new Set();
 
-let isMyTurn = false;  // Are we allowed to fire?
-let currentRoom = null; // The room assigned by server
+let isMyTurn = false;
+let currentRoom = null; // assigned by server or fallback
 
-// ----- Socket Listeners -----
+// ===== Socket Listeners =====
 
-// 1) Server says "You are player #1 or #2"
+// 1) We are "1" or "2"
 socket.on("playerNumber", (num) => {
   myPlayerNumber = num;
+  console.log("I am Player", myPlayerNumber);
 });
 
-// 2) Basic text messages from server
+// 2) Show messages from server
 socket.on("message", (msg) => {
   addMessage(msg);
 });
 
-// 3) Both players clicked "Ready" => we can place ships
+// 3) bothPlayersReady => place ships
 socket.on("bothPlayersReady", () => {
   addMessage("Both players ready. Place your 3 ships!");
   canPlaceShips = true;
 });
 
-// 4) Both players clicked "Done" => start the battle
+// 4) bothPlayersDone => time to battle
 socket.on("bothPlayersDone", () => {
   addMessage("Both players have placed ships! Let the battle begin!");
 });
 
-// 5) The server notifies us whose turn it is
+// 5) "turn" => set isMyTurn = (playerId === socket.id)
 socket.on("turn", (playerId) => {
+  console.log("Received turn event. playerId =", playerId, "myId =", socket.id);
   if (playerId === socket.id) {
     isMyTurn = true;
     addMessage("It's your turn to fire!");
@@ -57,14 +61,16 @@ socket.on("turn", (playerId) => {
   }
 });
 
-// 6) The opponent fires on us
+// 6) "fired" => opponent shot at (x,y). We see if it's a hit or miss.
 socket.on("fired", ({ x, y }) => {
-  const cellId = (myPlayerNumber === "1") 
-    ? `player-${x + y * 10}` 
+  console.log("Opponent fired on us at", x, y);
+  // If I'm player1, my board is "player-...", else "opponent-..."
+  const cellId = (myPlayerNumber === "1")
+    ? `player-${x + y * 10}`
     : `opponent-${x + y * 10}`;
 
   const cell = document.getElementById(cellId);
-  if (!cell) return; // safety check
+  if (!cell) return;
 
   if (myShipCells.has(cellId)) {
     // HIT
@@ -77,23 +83,19 @@ socket.on("fired", ({ x, y }) => {
   }
 });
 
-// 7) We see the result of OUR shot
+// 7) "fireResultForShooter" => the result of our shot
 socket.on("fireResultForShooter", ({ x, y, result }) => {
-  // For player 1, the opponent's board is "opponent-..."
-  // For player 2, the opponent's board is "player-..."
-  // Because whichever side is "not us" is the enemy board
+  console.log("We got fireResultForShooter", x, y, result);
   let cellId;
   if (myPlayerNumber === "1") {
-    // we fire onto the "opponent" board
+    // we attack the "opponent-..." board
     cellId = `opponent-${x + y * 10}`;
   } else {
-    // we are player 2, so we fire onto the "player" board
+    // we are player2 => we attack the "player-..." board
     cellId = `player-${x + y * 10}`;
   }
-
   const cell = document.getElementById(cellId);
   if (!cell) return;
-
   if (result === "hit") {
     cell.classList.add("hit");
     addMessage(`Your shot at (${x}, ${y}) was a HIT!`);
@@ -103,8 +105,9 @@ socket.on("fireResultForShooter", ({ x, y, result }) => {
   }
 });
 
-// 8) If the server assigns a "room"
+// 8) If server assigns a "room"
 socket.on("assignRoom", (roomName) => {
+  console.log("Assigned to room:", roomName);
   currentRoom = roomName;
 });
 
@@ -112,7 +115,7 @@ socket.on("assignRoom", (roomName) => {
 
 readyBtn.addEventListener("click", () => {
   socket.emit("playerReady");
-  readyBtn.disabled = true; 
+  readyBtn.disabled = true;
 });
 
 doneBtn.addEventListener("click", () => {
@@ -124,16 +127,13 @@ doneBtn.addEventListener("click", () => {
 });
 
 // Build the two boards side-by-side
-// By naming them "player" and "opponent", we let player1 place ships on "player"
-// and player2 place ships on "opponent"
-createBoard(playerBoard,  "player");
-createBoard(opponentBoard,"opponent");
+createBoard(playerBoard, "player");
+createBoard(opponentBoard, "opponent");
 
 /**
- * Creates a 10×10 grid. 
- * If boardIdPrefix === "player", Player1 places ships, 
- * If boardIdPrefix === "opponent", Player2 places ships,
- * and vice versa for firing logic.
+ * Creates a 10×10 grid
+ * If "player", Player1 places ships
+ * If "opponent", Player2 places ships
  */
 function createBoard(board, boardIdPrefix) {
   for (let i = 0; i < 100; i++) {
@@ -142,10 +142,11 @@ function createBoard(board, boardIdPrefix) {
     board.appendChild(cell);
 
     cell.addEventListener("click", () => {
-      // Are we placing ships or firing?
       if (!isDonePlacing && canPlaceShips) {
+        // Place ships
         handlePlacement(boardIdPrefix, cell);
       } else if (isDonePlacing && isMyTurn) {
+        // Fire if it's the correct board to attack
         handleFiring(boardIdPrefix, i);
       } else if (!isMyTurn) {
         addMessage("It's not your turn!");
@@ -156,19 +157,14 @@ function createBoard(board, boardIdPrefix) {
   }
 }
 
-/**
- * Handle placing a ship on the correct side if it's "my" board
- */
+// Place a ship on *my* board
 function handlePlacement(boardIdPrefix, cell) {
-  // If we've placed all ships, do nothing
   if (shipsPlaced >= maxShips) return;
 
-  // Check if this board belongs to me
-  // Player 1 => "player" board
-  // Player 2 => "opponent" board
+  // Player1 => "player-..."
+  // Player2 => "opponent-..."
   if ((myPlayerNumber === "1" && boardIdPrefix === "player") ||
       (myPlayerNumber === "2" && boardIdPrefix === "opponent")) {
-
     if (!cell.classList.contains("ship")) {
       cell.classList.add("ship");
       myShipCells.add(cell.id);
@@ -179,18 +175,14 @@ function handlePlacement(boardIdPrefix, cell) {
       }
     }
   } else {
-    // This board does not belong to you
-    addMessage("You can only place ships on your own board.");
+    addMessage("That's your own board, you can't fire there.");
   }
 }
 
-/**
- * Handle firing on the opponent's board
- */
+// Fire at the *opponent’s* board
 function handleFiring(boardIdPrefix, index) {
-  // Only allow firing if the board is indeed the opponent's
-  // For Player 1, the "opponent" board is labeled "opponent"
-  // For Player 2, the "opponent" board is labeled "player"
+  // For P1, the opponent is "opponent-..."
+  // For P2, the opponent is "player-..."
   if ((myPlayerNumber === "1" && boardIdPrefix === "opponent") ||
       (myPlayerNumber === "2" && boardIdPrefix === "player")) {
 
@@ -202,18 +194,15 @@ function handleFiring(boardIdPrefix, index) {
   }
 }
 
-/**
- * Actually fire at (x, y) on the opponent's board.
- */
 function fireAt(x, y) {
   if (!currentRoom) {
-    // fallback if server never assigned a room
+    // fallback if server never assigned
     currentRoom = socket.id;
   }
   socket.emit("fire", { room: currentRoom, x, y });
 }
 
-/** Logging messages */
+// Utility to log messages
 function addMessage(text) {
   const div = document.createElement("div");
   div.textContent = text;
