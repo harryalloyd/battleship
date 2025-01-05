@@ -7,6 +7,7 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 app.use(express.static(__dirname + "/public")); // Serve static files
+
 app.get("/", (req, res) => {
   res.sendFile(__dirname + "/public/battle.html");
 });
@@ -28,13 +29,14 @@ io.on("connection", (socket) => {
   let playerNumber = "";
   let roomId = null;
 
-  // If no one waiting, this is P1
   if (!waitingPlayer) {
+    // ========== This is Player 1 ==========
     waitingPlayer = socket;
     playerNumber = "1";
     socket.emit("message", "Waiting for another player...");
+    console.log("// DEBUG: Assigned new waitingPlayer =", socket.id);
   } else {
-    // We have a waiting player => this is P2
+    // ========== This is Player 2 ==========
     playerNumber = "2";
 
     // Create a room for them
@@ -42,7 +44,7 @@ io.on("connection", (socket) => {
     waitingPlayer.join(roomId);
     socket.join(roomId);
 
-    // Init the game object
+    // Initialize the game object
     games[roomId] = {
       players: [waitingPlayer.id, socket.id],
       turn: waitingPlayer.id, // P1’s turn by default
@@ -50,83 +52,84 @@ io.on("connection", (socket) => {
       doneCount: 0
     };
 
-    waitingPlayer.emit(
-      "message",
-      "Game started! Your turn. (You are Player 1)"
-    );
+    console.log("// DEBUG: Created room", roomId, "with players:", games[roomId].players);
+
+    // Tell both players which room they’re in
+    waitingPlayer.emit("assignRoom", roomId);
+    socket.emit("assignRoom", roomId);
+
+    waitingPlayer.emit("message", "Game started! Your turn. (You are Player 1)");
     socket.emit("message", "Game started! Opponent's turn. (You are Player 2)");
-    
+
     // Let P1 know it’s their turn
     io.to(games[roomId].turn).emit("turn", games[roomId].turn);
 
+    // Clear out the waiting player
     waitingPlayer = null;
   }
 
   // Tell the client if they are "1" or "2"
   socket.emit("playerNumber", playerNumber);
 
-  // If a room was just created, tell both players
-  if (roomId) {
-    socket.emit("assignRoom", roomId);
-  } else if (waitingPlayer) {
-    // for P1, we might do similarly once the second player arrives, but it’s optional
-    waitingPlayer.emit("assignRoom", roomId);
-  }
-
-  // ---------- playerReady ----------
+  // ========== playerReady ==========
   socket.on("playerReady", () => {
     const foundRoom = findRoomForPlayer(socket.id);
     if (!foundRoom) return;
 
     const game = games[foundRoom];
     game.readyCount++;
+    console.log("// DEBUG: playerReady from", socket.id, " => readyCount =", game.readyCount);
 
     if (game.readyCount === 2) {
+      console.log("// DEBUG: Both players ready in room", foundRoom);
       io.to(foundRoom).emit("bothPlayersReady");
     }
   });
 
-  // ---------- playerDone (placed ships) ----------
+  // ========== playerDone (placed ships) ==========
   socket.on("playerDone", () => {
     const foundRoom = findRoomForPlayer(socket.id);
     if (!foundRoom) return;
 
     const game = games[foundRoom];
     game.doneCount++;
-    console.log(
-      `Player ${socket.id} done placing. Now ${game.doneCount} in room ${foundRoom} done.`
-    );
+    console.log(`Player ${socket.id} done placing. doneCount = ${game.doneCount} in room ${foundRoom}`);
 
     if (game.doneCount === 2) {
       io.to(foundRoom).emit("bothPlayersDone");
-      console.log(
-        `Both players done in room ${foundRoom}, now it's turn of ${game.turn}`
-      );
-      // Re-emit turn to P1 (or whoever `game.turn` is currently set to)
+      console.log(`// DEBUG: Both players done in room ${foundRoom}, turn is ${game.turn}`);
       io.to(game.turn).emit("turn", game.turn);
     }
   });
 
-  // ---------- fire (the attacker fires at x,y) ----------
+  // ========== fire (the attacker fires at x,y) ==========
   socket.on("fire", ({ room, x, y }) => {
+    console.log("// DEBUG: Received 'fire' from", socket.id, " => (x,y) =", x,y, "in room =", room);
     const game = games[room];
     if (!game) {
       socket.emit("error", "Game not found!");
+      console.log("// DEBUG: No game found for room", room);
       return;
     }
     if (game.turn !== socket.id) {
       socket.emit("error", "Not your turn!");
+      console.log("// DEBUG: Not your turn for", socket.id, " => turn belongs to", game.turn);
       return;
     }
+    // Send 'fired' to the other player
     socket.to(room).emit("fired", { x, y });
   });
 
-  // ---------- fireResult (defender says hit or miss) ----------
+  // ========== fireResult (defender says hit or miss) ==========
   socket.on("fireResult", ({ room, x, y, result }) => {
+    console.log("// DEBUG: Received 'fireResult' from defender", socket.id, " =>", result, " at (x,y) =", x, y);
     const game = games[room];
-    if (!game) return;
+    if (!game) {
+      console.log("// DEBUG: No game found for room", room);
+      return;
+    }
 
-    // This ‘socket’ is the defender, so we relay the outcome to the attacker
+    // Relay to the attacker
     socket.to(room).emit("fireResultForShooter", { x, y, result });
 
     // Swap turn
@@ -135,7 +138,7 @@ io.on("connection", (socket) => {
     io.to(game.turn).emit("turn", game.turn);
   });
 
-  // ---------- disconnect ----------
+  // ========== disconnect ==========
   socket.on("disconnect", () => {
     console.log(`Player disconnected: ${socket.id}`);
     if (waitingPlayer && waitingPlayer.id === socket.id) {
@@ -145,6 +148,7 @@ io.on("connection", (socket) => {
     for (const [rId, game] of Object.entries(games)) {
       if (game.players.includes(socket.id)) {
         io.to(rId).emit("message", "Opponent disconnected. Game over.");
+        console.log("// DEBUG: Deleting game room", rId, "because", socket.id, "disconnected.");
         delete games[rId];
       }
     }
