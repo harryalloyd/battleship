@@ -13,7 +13,7 @@ body {
   gap: 40px;             
   margin-top: 20px;
   margin-left: 20px;     /* some spacing on the left */
-  margin-right: 320px;   /* reserve space on the right for #messages */
+  margin-right: 150px;   /* reserve space on the right for #messages */
 }
 
 /* Each board is 10×10 grid of cells */
@@ -56,4 +56,21 @@ body {
   text-align: left;  /* left-justify the text history */
   background: #fafafa;
   box-shadow: 0 0 5px rgba(0,0,0,0.3);
+  margin-top: 50px;
+}
+
+.top-bar {
+  display: flex;           /* horizontal layout */
+  flex-direction: column;  /* stack the heading above the buttons */
+  align-items: center;     /* center horizontally */
+  margin-top: 20px;        /* some spacing from the top */
+  margin-bottom: 20px;     /* optional spacing before the boards */
+  margin-right: 140px;
+}
+
+/* The row that holds the two buttons side by side */
+.button-row {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;      /* space between the two buttons */
 }
