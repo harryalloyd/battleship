@@ -1,11 +1,12 @@
 const socket = io();
 
 // DOM
-const messages   = document.getElementById("messages");
-const readyBtn   = document.getElementById("readyBtn");
-const doneBtn    = document.getElementById("doneBtn");
-const playerHead = document.getElementById("player-heading");
-const oppHead    = document.getElementById("opponent-heading");
+const messages      = document.getElementById("messages");
+const readyBtn      = document.getElementById("readyBtn");
+const doneBtn       = document.getElementById("doneBtn");
+const rematchBtn    = document.getElementById("rematchBtn");  // <--- NEW
+const playerHead    = document.getElementById("player-heading");
+const oppHead       = document.getElementById("opponent-heading");
 const playerBoard   = document.getElementById("player-board");
 const opponentBoard = document.getElementById("opponent-board");
 
@@ -15,10 +16,10 @@ const chatInput    = document.getElementById("chat-input");
 const chatSend     = document.getElementById("chat-send");
 
 // Overlays
-const spinner        = document.getElementById("spinner");
-const usernameOverlay= document.getElementById("username-overlay");
-const usernameInput  = document.getElementById("username-input");
-const usernameBtn    = document.getElementById("username-btn");
+const spinner         = document.getElementById("spinner");
+const usernameOverlay = document.getElementById("username-overlay");
+const usernameInput   = document.getElementById("username-input");
+const usernameBtn     = document.getElementById("username-btn");
 
 // Show spinner initially
 spinner.classList.remove("hidden");
@@ -46,12 +47,12 @@ let opponentUsername = "Opponent";
 //----------------------------------
 
 socket.on("connect", () => {
-  console.log("Connected =>", socket.id);
+  console.log("// DEBUG: connected =>", socket.id);
 });
 
 socket.on("assignRoom", (roomName) => {
   currentRoom = roomName;
-  console.log("assignRoom =>", roomName);
+  console.log("// DEBUG: assignRoom =>", roomName);
 });
 
 // As soon as second player arrives, hide spinner & show username overlay
@@ -60,34 +61,25 @@ socket.on("bothPlayersConnected", () => {
   usernameOverlay.classList.remove("hidden");
 });
 
-// The server says I'm "1" or "2"
 socket.on("playerNumber", (num) => {
   myPlayerNumber = num;
-  console.log("I am playerNumber =", num);
+  console.log("// DEBUG: I am playerNumber =", num);
 });
 
-// The server’s "message"
 socket.on("message", (msg) => {
   addMessage(msg);
 });
 
-// ========== The newly added "updateUsernames" event ==========
-//   => server sends { p1: "Alice", p2: "Bob" }
+// The server sends the updated user names
 socket.on("updateUsernames", ({ p1, p2 }) => {
-  console.log("updateUsernames => p1=", p1, " p2=", p2);
   if (myPlayerNumber === "1") {
-    // My name is p1
-    myUsername = p1;
+    myUsername       = p1;
     opponentUsername = p2;
-    
-    // Update headings
     playerHead.textContent   = myUsername + "'s Board";
     oppHead.textContent      = opponentUsername + "'s Board";
   } else {
-    // My name is p2
-    myUsername = p2;
+    myUsername       = p2;
     opponentUsername = p1;
-
     playerHead.textContent   = opponentUsername + "'s Board";
     oppHead.textContent      = myUsername + "'s Board";
   }
@@ -127,14 +119,16 @@ socket.on("turn", (playerId) => {
       getOpponentBoard().style.pointerEvents = "auto";
     }
   } else {
-    addMessage(`${opponentUsername}'s turn. Please wait.`);
+    addMessage(opponentUsername + "'s turn. Please wait.");
   }
 });
 
-// Opponent fires => see if it's a hit
+// Opponent fired => see if it's a hit
 socket.on("fired", ({ x, y }) => {
-  const cellId = (myPlayerNumber === "1") ? `player-${x + y * 10}` : `opponent-${x + y * 10}`;
-  const cell   = document.getElementById(cellId);
+  const cellId = (myPlayerNumber === "1")
+    ? `player-${x + y * 10}`
+    : `opponent-${x + y * 10}`;
+  const cell = document.getElementById(cellId);
   if (!cell) return;
 
   if (myShipCells.has(cellId)) {
@@ -151,7 +145,7 @@ socket.on("fired", ({ x, y }) => {
   }
 });
 
-// "fireResultForShooter"
+// We see the result of our shot
 socket.on("fireResultForShooter", ({ x, y, result }) => {
   let cellId;
   if (myPlayerNumber === "1") {
@@ -176,14 +170,43 @@ socket.on("fireResultForShooter", ({ x, y, result }) => {
   }
 });
 
-// Chat messages from opponent
+// Chat
 socket.on("chatMessage", ({ from, username, text }) => {
-  if (from === socket.id) return; // we already showed
+  if (from === socket.id) return; 
   addChatMessage(username, text);
 });
 
+// ========== REMATCH ==========
+// If both players requested => "rematchStart"
+socket.on("rematchStart", () => {
+  // Reset local states
+  gameEnded = false;
+  isMyTurn  = false;
+  firedThisTurn = false;
+  shipsPlaced   = 0;
+  isDonePlacing = false;
+  myShipCount   = 0;
+  enemyShipCount= 3;
+  myShipCells.clear();
+
+  // Clear boards: remove 'hit', 'miss', 'ship'
+  for (let i = 0; i < 100; i++) {
+    const pCell = document.getElementById("player-"+ i);
+    const oCell = document.getElementById("opponent-"+ i);
+    pCell.className = ""; // remove all classes
+    oCell.className = "";
+  }
+
+  // Re-enable the "Ready" button if you want them to re-place ships
+  readyBtn.disabled   = false;
+  doneBtn.disabled    = true;
+  rematchBtn.disabled = true; // can't re-rematch until next game ends
+
+  addMessage("Rematch started! Click Ready to place ships again.");
+});
+
 //------------------------------------------
-// DOM Events
+// DOM events
 //------------------------------------------
 
 readyBtn.addEventListener("click", () => {
@@ -203,6 +226,14 @@ doneBtn.addEventListener("click", () => {
       opponentBoard.style.pointerEvents = "none";
     }
   }
+});
+
+// ========== Rematch button (NEW) ==========
+rematchBtn.addEventListener("click", () => {
+  // I want a rematch => tell the server
+  socket.emit("requestRematch");
+  // disable so I can't spam
+  rematchBtn.disabled = true;
 });
 
 // Chat
@@ -225,10 +256,7 @@ usernameBtn.addEventListener("click", () => {
   const chosenName = usernameInput.value.trim();
   if (!chosenName) return;
 
-  // send name to server
   socket.emit("setUsername", chosenName);
-
-  // hide overlay
   usernameOverlay.classList.add("hidden");
 });
 
@@ -240,11 +268,15 @@ function getOpponentBoard() {
   return (myPlayerNumber === "1") ? opponentBoard : playerBoard;
 }
 
+// Called when user wins or loses
 function endGame() {
   gameEnded = true;
-  isMyTurn = false;
-  playerBoard.style.pointerEvents = "none";
+  isMyTurn  = false;
+  playerBoard.style.pointerEvents   = "none";
   opponentBoard.style.pointerEvents = "none";
+
+  // Let me click Rematch if I want
+  rematchBtn.disabled = false;
 }
 
 function createBoard(board, prefix) {
@@ -267,6 +299,7 @@ function createBoard(board, prefix) {
     });
   }
 }
+
 function handlePlacement(prefix, cell) {
   if (shipsPlaced >= maxShips) return;
 
@@ -287,17 +320,18 @@ function handlePlacement(prefix, cell) {
     }
   }
 }
+
 function handleFiring(prefix, index) {
   if (firedThisTurn) return;
 
   const isOpponentBoard =
     (myPlayerNumber === "1" && prefix === "opponent") ||
     (myPlayerNumber === "2" && prefix === "player");
-
   if (!isOpponentBoard) {
     addMessage("That's your own board, can't fire there.");
     return;
   }
+
   firedThisTurn = true;
   isMyTurn = false;
   playerBoard.style.pointerEvents   = "none";
@@ -307,11 +341,13 @@ function handleFiring(prefix, index) {
   const y = Math.floor(index / 10);
   socket.emit("fire", { room: currentRoom, x, y });
 }
+
 function addMessage(text) {
   const div = document.createElement("div");
   div.textContent = text;
   messages.appendChild(div);
 }
+
 function addChatMessage(sender, msg) {
   const div = document.createElement("div");
   div.textContent = sender + ": " + msg;
@@ -320,5 +356,5 @@ function addChatMessage(sender, msg) {
 }
 
 // Build boards
-createBoard(playerBoard,   "player");
+createBoard(playerBoard, "player");
 createBoard(opponentBoard, "opponent");

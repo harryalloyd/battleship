@@ -19,7 +19,8 @@ app.get("/", (req, res) => {
  *   readyCount: 0,
  *   doneCount: 0,
  *   shotsTaken: 0,
- *   usernames: { socket1Id: "Alice", socket2Id: "Bob" }
+ *   usernames: { socket1Id: "Alice", socket2Id: "Bob" },
+ *   rematchCount: 0   // <--- NEW: track how many players requested rematch
  */
 const games = {};
 let waitingPlayer = null;
@@ -52,7 +53,8 @@ io.on("connection", (socket) => {
       readyCount: 0,
       doneCount: 0,
       shotsTaken: 0,
-      usernames: {}
+      usernames: {},
+      rematchCount: 0  // <--- track how many players requested rematch
     };
 
     console.log(`// DEBUG: Created room=${roomId} with players:`, games[roomId].players);
@@ -77,8 +79,7 @@ io.on("connection", (socket) => {
     waitingPlayer = null;
   }
 
-  // If we’re still in the "P1" scenario (no second player yet),
-  // we can at least send "playerNumber=1" to P1
+  // If we’re still "P1" scenario, no second player yet
   if (!roomId && waitingPlayer === socket) {
     socket.emit("playerNumber", playerNumber); // "1"
   }
@@ -89,13 +90,12 @@ io.on("connection", (socket) => {
     if (!foundRoom) return;
     const game = games[foundRoom];
 
-    if (!game.usernames) game.usernames = {};
     game.usernames[socket.id] = username;
 
     // Broadcast BOTH updated usernames to each client
     const [p1, p2] = game.players;
-    const p1Name = game.usernames[p1] || "???";
-    const p2Name = game.usernames[p2] || "???";
+    const p1Name = game.usernames[p1] || "Player 1";
+    const p2Name = game.usernames[p2] || "Player 2";
 
     io.to(foundRoom).emit("updateUsernames", { p1: p1Name, p2: p2Name });
   });
@@ -171,6 +171,35 @@ io.on("connection", (socket) => {
       username,
       text
     });
+  });
+
+  // ========== requestRematch (NEW) ==========
+  socket.on("requestRematch", () => {
+    const rId = findRoomForPlayer(socket.id);
+    if (!rId) return;
+    const g = games[rId];
+
+    g.rematchCount++;
+    console.log(`// DEBUG: Player ${socket.id} requested rematch. Now rematchCount = ${g.rematchCount}`);
+
+    // If both players requested
+    if (g.rematchCount === 2) {
+      console.log(`// DEBUG: Both requested rematch => resetting game in room=${rId}`);
+
+      // reset the game state
+      g.shotsTaken = 0;
+      g.readyCount = 0;
+      g.doneCount  = 0;
+      g.rematchCount = 0;
+
+      // The same players and usernames remain. We can also pick who starts (P1).
+      g.turn = g.players[0]; // default: P1 starts again
+
+      // let them know
+      io.to(rId).emit("rematchStart");
+      // re-emit a "turn" event to P1
+      io.to(g.turn).emit("turn", g.turn);
+    }
   });
 
   // ========== disconnect ==========
