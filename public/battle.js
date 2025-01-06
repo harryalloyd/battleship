@@ -358,3 +358,11 @@ function addChatMessage(sender, msg) {
 // Build boards
 createBoard(playerBoard, "player");
 createBoard(opponentBoard, "opponent");
+
+const rulesToggle = document.getElementById("rules-toggle");
+const rulesBox    = document.getElementById("rules-box");
+
+// On click, toggle "hidden"
+rulesToggle.addEventListener("click", () => {
+  rulesBox.classList.toggle("hidden");
+});

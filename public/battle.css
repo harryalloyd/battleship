@@ -3,7 +3,7 @@ body {
   font-family: 'Roboto', sans-serif;
   margin: 0;
   padding: 0;
-  background-color: #f8f8f8; /* subtle background color */
+  background-color: #f7f7f7; /* subtle background color */
 }
 
 /* ========== TOP BAR (heading + Ready/Done) ========== */
@@ -266,4 +266,44 @@ body {
 #username-overlay button:hover {
   background: #1e7e34;
 }
+
+
+/* The container that sits near the bottom, centered horizontally
+   between the two boards. We can do absolute or fixed. */
+   .rules-container {
+    position: fixed;  /* so it stays at the bottom even if page scrolls */
+    bottom: 30px;     /* 20px from bottom */
+    left: 50%;        /* center horizontally */
+    transform: translateX(-50%); /* truly center by half width */
+    text-align: center;
+    z-index: 5;       /* above the boards but below modals/spinners if needed */
+  }
+  
+  /* The clickable portion with the book icon + "Rules" text. */
+  .rules-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;         /* space between icon and text */
+    cursor: pointer;
+    background: #f3f3f3;
+    padding: 8px 12px;
+    border-radius: 6px;
+    box-shadow: 0 0 5px rgba(0,0,0,0.15);
+    transition: background-color 0.2s ease;
+  }
+  .rules-toggle:hover {
+    background: #e1e1e1;
+  }
+  
+  /* The box that shows the actual rules text. */
+  .rules-box {
+    margin-top: 10px;
+    background: #ffffff;
+    padding: 10px 16px;
+    border-radius: 6px;
+    box-shadow: 0 0 5px rgba(0,0,0,0.2);
+    max-width: 300px;
+    /* If you want it centered, just text-align: left or center as you prefer */
+    text-align: left;
+  }
 

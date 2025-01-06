@@ -11,21 +11,23 @@
   <!-- Example Google Font (Roboto) -->
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap"/>
+
+  <!-- Main stylesheet -->
   <link rel="stylesheet" href="battle.css">
 </head>
 <body>
 
-  <!-- Top bar: heading + Ready/Done -->
+  <!-- Top bar: heading + Ready/Done/Rematch -->
   <div class="top-bar">
     <h1>Battleship</h1>
     <div class="button-row">
-      <button id="readyBtn" class="big-button">Ready</button>
-      <button id="doneBtn" class="big-button" disabled>Done</button>
+      <button id="readyBtn"   class="big-button">Ready</button>
+      <button id="doneBtn"    class="big-button" disabled>Done</button>
       <button id="rematchBtn" class="big-button" disabled>Rematch</button>
     </div>
   </div>
 
-  <!-- The main container: chat left, boards center, #messages right -->
+  <!-- The main container: chat on the left, boards center, #messages right -->
   <div class="main-container">
 
     <!-- Chat on the left -->
@@ -34,9 +36,8 @@
       <div id="chat-messages" class="chat-messages"></div>
       <div class="chat-input-row">
         <input type="text" id="chat-input" placeholder="Type a message..." />
-        <!-- Use the Font Awesome plane icon instead of text "Send" -->
         <button id="chat-send" title="Send message">
-          <i class="fa-solid fa-paper-plane"></i>
+          <i class="fa-solid fa-paper-plane"></i> <!-- Send icon -->
         </button>
       </div>
     </div>
@@ -57,6 +58,7 @@
         <button id="username-btn">OK</button>
       </div>
 
+      <!-- Player 1 and Player 2 boards -->
       <div>
         <h2 id="player-heading">Player 1's Board</h2>
         <div id="player-board" class="board"></div>
@@ -69,6 +71,21 @@
 
     <!-- game messages on the right -->
     <div id="messages"></div>
+  </div>
+
+  <!-- ========== RULES SECTION ========== -->
+  <div class="rules-container" id="rules-container">
+    <div class="rules-toggle" id="rules-toggle">
+      <i class="fa-solid fa-book"></i>
+      <span>Rules</span>
+    </div>
+    <div class="rules-box hidden" id="rules-box">
+      <p>1) Both players need to be ready in order to begin </p>
+      <p>2) After readying up, both players must place their ships on their respective side</p>
+      <p>3) Player 1 commences the attack</p>
+      <p>4) The first player to sink all 3 ships is the winner</p>
+
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
