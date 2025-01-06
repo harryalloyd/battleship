@@ -186,7 +186,7 @@ body {
   background-color: #86d4ff;  /* hover slightly lighter */
 }
 .board .hit {
-  background-color: #dc3545;  /* a bold red */
+  background-color: #dc3545 !important;  /* a bold red */
 }
 .board .miss {
   background-color: #fff;
@@ -307,3 +307,34 @@ body {
     text-align: left;
   }
 
+  .ship-inventory {
+    margin-top: 10px;
+    display: flex;
+    gap: 15px;
+  }
+  
+  /* Each "ship-block" is the entire ship (vertical stack). */
+  .ship-block {
+    display: flex;
+    flex-direction: column; /* stack squares vertically */
+    cursor: grab;
+  }
+  
+  .ship-block:active {
+    cursor: grabbing;
+  }
+  
+  /* Each square in the ship is 30×30, same color as the 'ship' style used on the board. */
+  .ship-square {
+    width: 30px;
+    height: 30px;
+    background-color: #aaa; /* or any color you like for the ship */
+    border: 1px solid #555;
+    margin-bottom: 2px; /* small gap between squares */
+  }
+  
+  /* Make the last square not have a margin bottom if you prefer: */
+  .ship-block .ship-square:last-child {
+    margin-bottom: 0;
+  }
+  

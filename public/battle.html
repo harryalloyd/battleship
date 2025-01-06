@@ -8,7 +8,7 @@
   <!-- Font Awesome for icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
 
-  <!-- Example Google Font (Roboto) -->
+  <!-- Google Font (Roboto) -->
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap"/>
 
@@ -27,7 +27,6 @@
     </div>
   </div>
 
-  <!-- The main container: chat on the left, boards center, #messages right -->
   <div class="main-container">
 
     <!-- Chat on the left -->
@@ -37,7 +36,7 @@
       <div class="chat-input-row">
         <input type="text" id="chat-input" placeholder="Type a message..." />
         <button id="chat-send" title="Send message">
-          <i class="fa-solid fa-paper-plane"></i> <!-- Send icon -->
+          <i class="fa-solid fa-paper-plane"></i>
         </button>
       </div>
     </div>
@@ -51,40 +50,77 @@
         <p>Waiting for other player...</p>
       </div>
 
-      <!-- USERNAME OVERLAY for entering username (initially hidden) -->
+      <!-- USERNAME OVERLAY (initially hidden) -->
       <div id="username-overlay" class="overlay hidden">
         <h3>Enter Your Username</h3>
-        <input type="text" id="username-input" placeholder="e.g. John Smith123" />
+        <input type="text" id="username-input" placeholder="e.g. John" />
         <button id="username-btn">OK</button>
       </div>
 
-      <!-- Player 1 and Player 2 boards -->
+      <!-- PLAYER 1 area -->
       <div>
         <h2 id="player-heading">Player 1's Board</h2>
         <div id="player-board" class="board"></div>
+
+        <!-- SHIP INVENTORY for Player1, hidden if you're Player2 -->
+        <div class="ship-inventory" id="player-inventory">
+          <!-- length 1 -->
+          <div class="ship-block" draggable="true" data-length="1" id="p1-ship-1">
+            <div class="ship-square"></div>
+          </div>
+          <!-- length 2 -->
+          <div class="ship-block" draggable="true" data-length="2" id="p1-ship-2">
+            <div class="ship-square"></div>
+            <div class="ship-square"></div>
+          </div>
+          <!-- length 3 -->
+          <div class="ship-block" draggable="true" data-length="3" id="p1-ship-3">
+            <div class="ship-square"></div>
+            <div class="ship-square"></div>
+            <div class="ship-square"></div>
+          </div>
+        </div>
       </div>
+
+      <!-- PLAYER 2 area -->
       <div>
         <h2 id="opponent-heading">Player 2's Board</h2>
         <div id="opponent-board" class="board"></div>
+
+        <!-- SHIP INVENTORY for Player2, hidden if you're Player1 -->
+        <div class="ship-inventory" id="opponent-inventory">
+          <!-- length 1 -->
+          <div class="ship-block" draggable="true" data-length="1" id="p2-ship-1">
+            <div class="ship-square"></div>
+          </div>
+          <!-- length 2 -->
+          <div class="ship-block" draggable="true" data-length="2" id="p2-ship-2">
+            <div class="ship-square"></div>
+            <div class="ship-square"></div>
+          </div>
+          <!-- length 3 -->
+          <div class="ship-block" draggable="true" data-length="3" id="p2-ship-3">
+            <div class="ship-square"></div>
+            <div class="ship-square"></div>
+            <div class="ship-square"></div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- game messages on the right -->
+    <!-- messages on the right -->
     <div id="messages"></div>
   </div>
 
-  <!-- ========== RULES SECTION ========== -->
+  <!-- RULES container at bottom center -->
   <div class="rules-container" id="rules-container">
     <div class="rules-toggle" id="rules-toggle">
       <i class="fa-solid fa-book"></i>
       <span>Rules</span>
     </div>
     <div class="rules-box hidden" id="rules-box">
-      <p>1) Both players need to be ready in order to begin </p>
-      <p>2) After readying up, both players must place their ships on their respective side</p>
-      <p>3) Player 1 commences the attack</p>
-      <p>4) The first player to sink all 3 ships is the winner</p>
-
+      <p>Each player has 3 ships: length 1, 2, and 3 (6 squares total). You must place all 6 squares on your board. The other player needs 6 hits to sink them all.</p>
+      <p>Drag the ships onto your grid, then click Done. Good luck!</p>
     </div>
   </div>
 
