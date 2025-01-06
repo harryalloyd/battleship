@@ -121,6 +121,7 @@ body {
   margin: 0;
   margin-top: 20px;
   position: relative; /* so the spinner can position absolutely inside */
+  margin-left: 60px;
 }
 
 /* The spinner area */
