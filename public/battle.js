@@ -7,10 +7,21 @@ const doneBtn       = document.getElementById("doneBtn");
 const playerBoard   = document.getElementById("player-board");
 const opponentBoard = document.getElementById("opponent-board");
 
-// ========== NEW: Chat elements ==========
-const chatMessages = document.getElementById("chat-messages");   // The div that shows chat lines
-const chatInput    = document.getElementById("chat-input");      // The <input>
-const chatSend     = document.getElementById("chat-send");       // The "Send" button
+// Chat
+const chatMessages = document.getElementById("chat-messages");
+const chatInput    = document.getElementById("chat-input");
+const chatSend     = document.getElementById("chat-send");
+
+// Spinner (waiting overlay)
+const spinner = document.getElementById("spinner");
+
+// Username overlay
+const usernameOverlay = document.getElementById("username-overlay");
+const usernameInput   = document.getElementById("username-input");
+const usernameBtn     = document.getElementById("username-btn");
+
+// Show the spinner initially, waiting for second player
+spinner.classList.remove('hidden');
 
 // Game state
 let myPlayerNumber = null;
@@ -24,11 +35,15 @@ let isMyTurn = false;
 let currentRoom = null;
 let firedThisTurn = false; 
 
-// Win condition variables
+// Win condition
 let myShipCount = 0;    
 let enemyShipCount = 3; 
 
 let gameEnded = false;
+
+//** We'll store username here, and let the user pick it after spinner is gone. */
+let myUsername = "Me";
+let opponentUsername = "Opponent";
 
 //------------------------------------------
 // Socket Listeners
@@ -42,21 +57,27 @@ socket.on("playerNumber", (num) => {
   myPlayerNumber = num;
   console.log("// DEBUG: I am Player", num);
 
-  // Initially disable both boards
+  // Initially disable boards
   playerBoard.style.pointerEvents = "none";
   opponentBoard.style.pointerEvents = "none";
 });
 
 socket.on("message", (msg) => {
-  addMessage(msg);  // game messages on the right
+  addMessage(msg);
   console.log("// DEBUG: [message] =>", msg);
 });
 
-// Both players ready => place ships
+// If both players are ready, let's hide spinner + show username overlay
 socket.on("bothPlayersReady", () => {
   addMessage("Both players ready. Place your 3 ships!");
   canPlaceShips = true;
   enemyShipCount = 3;
+
+  // Hide the spinner
+  spinner.classList.add('hidden');
+
+  // Show the username overlay for the user to pick a name
+  usernameOverlay.classList.remove('hidden');
 
   if (myPlayerNumber === "1") {
     playerBoard.style.pointerEvents = "auto";
@@ -65,14 +86,14 @@ socket.on("bothPlayersReady", () => {
   }
 });
 
-// Both players done => disable boards, wait for turn
+// Once both players are done placing ships
 socket.on("bothPlayersDone", () => {
   addMessage("Both players placed ships! Let the battle begin.");
   playerBoard.style.pointerEvents = "none";
   opponentBoard.style.pointerEvents = "none";
 });
 
-// "turn" => who fires
+// Turn event
 socket.on("turn", (playerId) => {
   isMyTurn = false;
   firedThisTurn = false;
@@ -87,11 +108,11 @@ socket.on("turn", (playerId) => {
       getOpponentBoard().style.pointerEvents = "auto";
     }
   } else {
-    addMessage("Opponent's turn. Please wait.");
+    addMessage(`${opponentUsername}'s turn. Please wait.`);
   }
 });
 
-// Opponent fired => check if it's hit or miss
+// Opponent fired => check if it's a hit
 socket.on("fired", ({ x, y }) => {
   const cellId = (myPlayerNumber === "1")
     ? `player-${x + y * 10}`
@@ -114,7 +135,7 @@ socket.on("fired", ({ x, y }) => {
   }
 });
 
-// Our shot's outcome
+// Our shot outcome
 socket.on("fireResultForShooter", ({ x, y, result }) => {
   let cellId;
   if (myPlayerNumber === "1") {
@@ -140,63 +161,29 @@ socket.on("fireResultForShooter", ({ x, y, result }) => {
   }
 });
 
-// The server assigns a room
+// Assign the room
 socket.on("assignRoom", (roomName) => {
   currentRoom = roomName;
   console.log("// DEBUG: assignRoom =>", roomName);
 });
 
-// If the server sends an "error" event
+// Error event
 socket.on("error", (msg) => {
   addMessage("Error: " + msg);
   console.warn("// DEBUG [server error]:", msg);
 });
 
-//------------------------------------------
-// ========== NEW: Chat Logic ==========
-//------------------------------------------
-
+// ========== Chat Logic ==========
 socket.on("chatMessage", ({ from, text }) => {
-  // If the message is from ourselves, we might have already shown "Me: text", so we can ignore
-  // or we can show it again. Let's show the opponent's messages only if from != socket.id
   if (from === socket.id) {
-    return; // already displayed "Me: text"
+    return; // we already displayed "Me: text"
   }
-  // Otherwise, show "Opponent: text"
-  addChatMessage("Opponent", text);
+  // Otherwise, show "opponentUsername: text"
+  addChatMessage(opponentUsername, text);
 });
-
-chatSend.addEventListener("click", () => {
-  const text = chatInput.value.trim();
-  if (text) {
-    // Show it in my own chat as "Me: text"
-    addChatMessage("Me", text);
-
-    // Send it to server
-    socket.emit("chatMessage", text);
-
-    chatInput.value = "";
-  }
-});
-
-// Pressing Enter in the chat input triggers "Send"
-chatInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    chatSend.click();
-  }
-});
-
-/** Helper to add lines to #chat-messages */
-function addChatMessage(sender, msg) {
-  const div = document.createElement("div");
-  div.textContent = sender + ": " + msg;
-  chatMessages.appendChild(div);
-  // auto-scroll
-  chatMessages.scrollTop = chatMessages.scrollHeight;
-}
 
 //------------------------------------------
-// DOM Setup & Event Handlers
+// DOM event listeners
 //------------------------------------------
 
 readyBtn.addEventListener("click", () => {
@@ -218,12 +205,36 @@ doneBtn.addEventListener("click", () => {
   }
 });
 
-// Build boards
-createBoard(playerBoard, "player");
-createBoard(opponentBoard, "opponent");
+// Chat
+chatSend.addEventListener("click", () => {
+  const text = chatInput.value.trim();
+  if (text) {
+    addChatMessage(myUsername, text);
+    socket.emit("chatMessage", text);
+    chatInput.value = "";
+  }
+});
+chatInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    chatSend.click();
+  }
+});
+
+// Username
+usernameBtn.addEventListener("click", () => {
+  const name = usernameInput.value.trim();
+  if (name) {
+    myUsername = name;
+    // Optionally, guess that the other player's username is something else 
+    // or show "???". Or you can exchange username info via server if you want.
+    opponentUsername = "???";
+
+    usernameOverlay.classList.add('hidden');
+  }
+});
 
 //------------------------------------------
-// Functions
+// Helper Functions
 //------------------------------------------
 
 function getOpponentBoard() {
@@ -237,7 +248,6 @@ function endGame() {
   opponentBoard.style.pointerEvents = "none";
 }
 
-/** Create a 10×10 grid */
 function createBoard(board, prefix) {
   board.style.pointerEvents = "none";
   for (let i = 0; i < 100; i++) {
@@ -258,7 +268,6 @@ function createBoard(board, prefix) {
     });
   }
 }
-
 function handlePlacement(prefix, cell) {
   if (shipsPlaced >= maxShips) return;
 
@@ -281,12 +290,8 @@ function handlePlacement(prefix, cell) {
     }
   }
 }
-
 function handleFiring(prefix, index) {
-  if (firedThisTurn) {
-    console.log("// DEBUG: already fired => ignoring");
-    return;
-  }
+  if (firedThisTurn) return;
 
   const isOpponentBoard =
     (myPlayerNumber === "1" && prefix === "opponent") ||
@@ -306,10 +311,18 @@ function handleFiring(prefix, index) {
   const y = Math.floor(index / 10);
   socket.emit("fire", { room: currentRoom, x, y });
 }
-
-/** For normal game messages on the right panel (#messages) */
 function addMessage(text) {
   const div = document.createElement("div");
   div.textContent = text;
   messages.appendChild(div);
 }
+function addChatMessage(sender, msg) {
+  const div = document.createElement("div");
+  div.textContent = sender + ": " + msg;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// Build boards
+createBoard(playerBoard, "player");
+createBoard(opponentBoard, "opponent");

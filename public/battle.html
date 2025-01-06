@@ -2,22 +2,29 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>Battleship</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+
+  <!-- Example Google Font (Roboto) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap"/>
   <link rel="stylesheet" href="battle.css">
 </head>
 <body>
 
-  <!-- Top bar with heading + Ready/Done -->
+  <!-- Top bar: heading + Ready/Done -->
   <div class="top-bar">
     <h1>Battleship</h1>
     <div class="button-row">
-      <button id="readyBtn">Ready</button>
-      <button id="doneBtn" disabled>Done</button>
+      <button id="readyBtn" class="big-button">Ready</button>
+      <button id="doneBtn" class="big-button" disabled>Done</button>
     </div>
   </div>
 
-  <!-- main-container: chat on left, boards center, #messages absolute right -->
+  <!-- The main container: chat left, boards center, #messages right -->
   <div class="main-container">
 
     <!-- Chat on the left -->
@@ -26,12 +33,29 @@
       <div id="chat-messages" class="chat-messages"></div>
       <div class="chat-input-row">
         <input type="text" id="chat-input" placeholder="Type a message..." />
-        <button id="chat-send">Send</button>
+        <!-- Use the Font Awesome plane icon instead of text "Send" -->
+        <button id="chat-send" title="Send message">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
       </div>
     </div>
 
     <!-- Boards in the center -->
     <div class="board-container">
+
+      <!-- SPINNER for waiting (initially hidden) -->
+      <div id="spinner" class="spinner hidden">
+        <div class="loading-circle"></div>
+        <p>Waiting for other player...</p>
+      </div>
+
+      <!-- USERNAME OVERLAY for entering username (initially hidden) -->
+      <div id="username-overlay" class="overlay hidden">
+        <h3>Enter Your Username</h3>
+        <input type="text" id="username-input" placeholder="e.g. Harry" />
+        <button id="username-btn">OK</button>
+      </div>
+
       <div>
         <h2>Player 1's Board</h2>
         <div id="player-board" class="board"></div>

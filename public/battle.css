@@ -1,8 +1,9 @@
-/* Remove default body margin/padding */
+/* Use Roboto by default */
 body {
-  font-family: Arial, sans-serif;
+  font-family: 'Roboto', sans-serif;
   margin: 0;
   padding: 0;
+  background-color: #f8f8f8; /* subtle background color */
 }
 
 /* ========== TOP BAR (heading + Ready/Done) ========== */
@@ -12,45 +13,77 @@ body {
   align-items: center;
   margin-top: 20px;
   margin-bottom: 20px;
-  margin-right: 25px;
-  /* Remove margin-right: 120px to avoid pushing everything left */
 }
 
+/* Make the heading bigger and bolder */
+.top-bar h1 {
+  font-weight: 700;
+  font-size: 2.5rem; /* bigger heading */
+  margin: 0;
+}
+
+/* Big Buttons for Ready/Done */
 .button-row {
   margin-top: 10px;
   display: flex;
-  gap: 10px;
+  gap: 15px;
+}
+
+/* Slightly bigger, tinted buttons */
+.big-button {
+  font-size: 1.1rem;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 5px;
+  background-color: #007bff;  /* bootstrap-ish blue */
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.big-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.big-button:hover:not(:disabled) {
+  background-color: #0056b3;
 }
 
 /* ========== MAIN CONTAINER: chat on left, boards center, messages right ========== */
 .main-container {
   display: flex;
   align-items: flex-start;
-  /* Let’s keep a bit of left margin and right margin
-     so #messages can sit to the right. */
   margin: 0 150px 0 20px; 
 }
 
 /* ========== CHAT ========== */
 .chat-container {
   width: 280px;
-  margin-right: 20px; /* spacing between chat and boards */
-  background: #f3f3f3;
+  margin-right: 20px;
+  background: #ffffff; /* pure white for chat */
   padding: 10px;
   border-radius: 5px;
   height: 600px;
   display: flex;
   flex-direction: column;
   box-shadow: 0 0 5px rgba(0,0,0,0.3);
+}
 
+.chat-container h2 {
+  margin-top: 0;
+  font-size: 1.2rem;
+  text-align: center;
 }
 
 .chat-messages {
   flex: 1;
   overflow-y: auto;
   border: 1px solid #ccc;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
   padding: 5px;
+  background-color: #fafafa;
+  border-radius: 5px;
 }
 
 .chat-input-row {
@@ -60,26 +93,78 @@ body {
 
 #chat-input {
   flex: 1;
-  padding: 4px;
-}
-#chat-send {
-  width: 60px;
-  padding: 4px;
+  padding: 6px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
 }
 
-/* ========== BOARD CONTAINER IN THE CENTER ========== */
+#chat-send {
+  width: 60px;
+  padding: 6px;
+  border: none;
+  border-radius: 4px;
+  background-color: #28a745; /* greenish */
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+#chat-send:hover {
+  background-color: #1e7e34;
+}
+
+/* ========== BOARD CONTAINER / SPINNER ========== */
 .board-container {
-  /* Remove old margin-left/right so they don’t conflict with .main-container’s margin */
   display: flex;
   justify-content: center;
   align-items: flex-start;
   gap: 40px;
-  margin: 0;  /* let .main-container handle outer margins */
-  margin-top: 20px; /* optional vertical spacing */
-  margin-left: 50px;
+  margin: 0;
+  margin-top: 20px;
+  position: relative; /* so the spinner can position absolutely inside */
 }
 
-/* ========== THE BOARDS THEMSELVES ========== */
+/* The spinner area */
+.spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.8); /* semi-transparent backdrop */
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 0 5px rgba(0,0,0,0.2);
+}
+
+/* Hidden by default */
+.hidden {
+  display: none;
+}
+
+/* spinner rotating circle */
+.loading-circle {
+  width: 40px;
+  height: 40px;
+  border: 6px solid #ccc;
+  border-top: 6px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 10px;
+}
+@keyframes spin {
+  0%   { transform: rotate(0deg);   }
+  100% { transform: rotate(360deg); }
+}
+
+.spinner p {
+  font-weight: 500;
+  color: #444;
+}
+
+/* ========== THE BOARDS ========== */
 .board {
   display: grid;
   grid-template-columns: repeat(10, 30px);
@@ -91,18 +176,22 @@ body {
 .board div {
   width: 30px;
   height: 30px;
-  background-color: lightblue;
-  border: 1px solid black;
+  background-color: #6cc4f0;  /* a calmer blue */
+  border: 1px solid #555;
   cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.board div:hover {
+  background-color: #86d4ff;  /* hover slightly lighter */
 }
 .board .hit {
-  background-color: red;
+  background-color: #dc3545;  /* a bold red */
 }
 .board .miss {
-  background-color: white;
+  background-color: #fff;
 }
 .board .ship {
-  background-color: gray;
+  background-color: #aaa;      /* grey for ships */
 }
 
 /* ========== MESSAGES PANEL ON THE RIGHT ========== */
@@ -115,7 +204,65 @@ body {
   border: 1px solid #ccc;
   padding: 10px;
   overflow-y: auto;
-  background: #fafafa;
+  background: #ffffff;
   box-shadow: 0 0 5px rgba(0,0,0,0.3);
-  margin-top: 130px; /* optional vertical offset */
+  margin-top: 130px; /* offset from top bar */
 }
+
+/* Example overlay styling for #spinner and #username-overlay */
+.spinner, .overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 20px;
+  border-radius: 10px;
+  box-shadow: 0 0 5px rgba(0,0,0,0.2);
+}
+
+/* hidden by default */
+.hidden {
+  display: none;
+}
+
+/* spinner circle */
+.loading-circle {
+  width: 40px;
+  height: 40px;
+  border: 6px solid #ccc;
+  border-top: 6px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 10px;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* For #username-overlay specifically */
+#username-overlay h3 {
+  margin-bottom: 10px;
+}
+#username-overlay input {
+  padding: 6px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+#username-overlay button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  background: #28a745;
+  color: #fff;
+  cursor: pointer;
+}
+#username-overlay button:hover {
+  background: #1e7e34;
+}
+
