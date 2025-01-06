@@ -2,35 +2,31 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <title>Battleship</title>
   <link rel="stylesheet" href="battle.css">
 </head>
 <body>
-    <h1>Battleship</h1>
-    <div id="messages"></div>
-  
-    <!-- Ready button -->
-    <button id="readyBtn">Ready</button>
-  
-    <!-- Done button (place ships) -->
-    <button id="doneBtn" disabled>Done</button>
-  
-    <!-- Container for both boards, side-by-side -->
-    <div class="board-container">
-      <!-- The left board (Player 1) -->
-      <div>
-        <h2>Player 1's Board</h2>
-        <div id="player-board" class="board"></div>
-      </div>
-  
-      <!-- The right board (Player 2) -->
-      <div>
-        <h2>Player 2's Board</h2>
-        <div id="opponent-board" class="board"></div>
-      </div>
-    </div>
+  <h1>Battleship</h1>
 
+  <!-- Ready/Done buttons -->
+  <button id="readyBtn">Ready</button>
+  <button id="doneBtn" disabled>Done</button>
+
+  <!-- Container for both boards -->
+  <div class="board-container">
+    <div>
+      <h2>Player 1's Board</h2>
+      <div id="player-board" class="board"></div>
+    </div>
+    <div>
+      <h2>Player 2's Board</h2>
+      <div id="opponent-board" class="board"></div>
+    </div>
+  </div>
+
+  <!-- The message panel absolutely positioned on the right -->
+  <div id="messages"></div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="battle.js"></script>
