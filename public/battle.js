@@ -1,13 +1,16 @@
-// battle.js
-
 const socket = io();
 
 // DOM elements
-const messages = document.getElementById("messages");
-const readyBtn = document.getElementById("readyBtn");
-const doneBtn = document.getElementById("doneBtn");
-const playerBoard = document.getElementById("player-board");
+const messages      = document.getElementById("messages");
+const readyBtn      = document.getElementById("readyBtn");
+const doneBtn       = document.getElementById("doneBtn");
+const playerBoard   = document.getElementById("player-board");
 const opponentBoard = document.getElementById("opponent-board");
+
+// ========== NEW: Chat elements ==========
+const chatMessages = document.getElementById("chat-messages");   // The div that shows chat lines
+const chatInput    = document.getElementById("chat-input");      // The <input>
+const chatSend     = document.getElementById("chat-send");       // The "Send" button
 
 // Game state
 let myPlayerNumber = null;
@@ -21,14 +24,15 @@ let isMyTurn = false;
 let currentRoom = null;
 let firedThisTurn = false; 
 
-// ========== NEW: For Win Condition ==========
-let myShipCount = 0;     // how many ships I have left
-let enemyShipCount = 3;  // how many ships the opponent has left
-// We'll set myShipCount=3 once we place all 3 ships
+// Win condition variables
+let myShipCount = 0;    
+let enemyShipCount = 3; 
 
-//--------------------------------------------------
-//  Socket Listeners
-//--------------------------------------------------
+let gameEnded = false;
+
+//------------------------------------------
+// Socket Listeners
+//------------------------------------------
 
 socket.on("connect", () => {
   console.log("// DEBUG: Client connected, ID =", socket.id);
@@ -44,20 +48,16 @@ socket.on("playerNumber", (num) => {
 });
 
 socket.on("message", (msg) => {
-  addMessage(msg);
+  addMessage(msg);  // game messages on the right
   console.log("// DEBUG: [message] =>", msg);
 });
 
 // Both players ready => place ships
 socket.on("bothPlayersReady", () => {
   addMessage("Both players ready. Place your 3 ships!");
-  console.log("// DEBUG: bothPlayersReady => canPlaceShips=true");
   canPlaceShips = true;
+  enemyShipCount = 3;
 
-  // Because the opponent is also placing exactly 3 ships
-  enemyShipCount = 3; 
-
-  // Enable pointer events on your own board only
   if (myPlayerNumber === "1") {
     playerBoard.style.pointerEvents = "auto";
   } else {
@@ -68,16 +68,15 @@ socket.on("bothPlayersReady", () => {
 // Both players done => disable boards, wait for turn
 socket.on("bothPlayersDone", () => {
   addMessage("Both players placed ships! Let the battle begin.");
-  console.log("// DEBUG: bothPlayersDone => disabling both boards, waiting for 'turn'");
   playerBoard.style.pointerEvents = "none";
   opponentBoard.style.pointerEvents = "none";
 });
 
-// "turn" => who fires next
+// "turn" => who fires
 socket.on("turn", (playerId) => {
-  console.log("// DEBUG: 'turn' => belongs to", playerId, " (I am=", socket.id, ")");
   isMyTurn = false;
   firedThisTurn = false;
+
   playerBoard.style.pointerEvents = "none";
   opponentBoard.style.pointerEvents = "none";
 
@@ -85,46 +84,37 @@ socket.on("turn", (playerId) => {
     isMyTurn = true;
     addMessage("It's your turn to fire!");
     if (!gameEnded) {
-      getOpponentBoardElement().style.pointerEvents = "auto";
+      getOpponentBoard().style.pointerEvents = "auto";
     }
   } else {
     addMessage("Opponent's turn. Please wait.");
   }
 });
 
-// Opponent fired => see if it's hit or miss
+// Opponent fired => check if it's hit or miss
 socket.on("fired", ({ x, y }) => {
-  console.log(`// DEBUG: 'fired' => Opponent shot at x=${x}, y=${y}`);
   const cellId = (myPlayerNumber === "1")
     ? `player-${x + y * 10}`
     : `opponent-${x + y * 10}`;
 
   const cell = document.getElementById(cellId);
-  if (!cell) {
-    console.log(`// DEBUG: can't find cellId=${cellId}, ignoring`);
-    return;
-  }
+  if (!cell) return;
 
   if (myShipCells.has(cellId)) {
-    console.log(`// DEBUG: Opponent HIT on ${cellId}`);
     cell.classList.add("hit");
-
-    // Decrement myShipCount
     myShipCount--;
     if (myShipCount === 0) {
       addMessage("You Lost!");
       endGame();
     }
-
     socket.emit("fireResult", { room: currentRoom, x, y, result: "hit" });
   } else {
-    console.log(`// DEBUG: Opponent MISS on ${cellId}`);
     cell.classList.add("miss");
     socket.emit("fireResult", { room: currentRoom, x, y, result: "miss" });
   }
 });
 
-// We get the outcome of our shot
+// Our shot's outcome
 socket.on("fireResultForShooter", ({ x, y, result }) => {
   let cellId;
   if (myPlayerNumber === "1") {
@@ -133,19 +123,12 @@ socket.on("fireResultForShooter", ({ x, y, result }) => {
     cellId = `player-${x + y * 10}`;
   }
 
-  console.log(`// DEBUG: 'fireResultForShooter' => x=${x}, y=${y}, result=${result}, cellId=${cellId}`);
-
   const cell = document.getElementById(cellId);
-  if (!cell) {
-    console.log(`// DEBUG: can't find cell=${cellId}`);
-    return;
-  }
+  if (!cell) return;
 
   if (result === "hit") {
     cell.classList.add("hit");
     addMessage(`Shot at (${x}, ${y}) was a HIT!`);
-
-    // Decrement enemyShipCount
     enemyShipCount--;
     if (enemyShipCount === 0) {
       addMessage("You Won!");
@@ -169,30 +152,64 @@ socket.on("error", (msg) => {
   console.warn("// DEBUG [server error]:", msg);
 });
 
-//--------------------------------------------------
-//  DOM Setup & Handlers
-//--------------------------------------------------
+//------------------------------------------
+// ========== NEW: Chat Logic ==========
+//------------------------------------------
 
-//const readyBtn = document.getElementById("readyBtn");
-//const doneBtn = document.getElementById("doneBtn");
+socket.on("chatMessage", ({ from, text }) => {
+  // If the message is from ourselves, we might have already shown "Me: text", so we can ignore
+  // or we can show it again. Let's show the opponent's messages only if from != socket.id
+  if (from === socket.id) {
+    return; // already displayed "Me: text"
+  }
+  // Otherwise, show "Opponent: text"
+  addChatMessage("Opponent", text);
+});
+
+chatSend.addEventListener("click", () => {
+  const text = chatInput.value.trim();
+  if (text) {
+    // Show it in my own chat as "Me: text"
+    addChatMessage("Me", text);
+
+    // Send it to server
+    socket.emit("chatMessage", text);
+
+    chatInput.value = "";
+  }
+});
+
+// Pressing Enter in the chat input triggers "Send"
+chatInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    chatSend.click();
+  }
+});
+
+/** Helper to add lines to #chat-messages */
+function addChatMessage(sender, msg) {
+  const div = document.createElement("div");
+  div.textContent = sender + ": " + msg;
+  chatMessages.appendChild(div);
+  // auto-scroll
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+//------------------------------------------
+// DOM Setup & Event Handlers
+//------------------------------------------
 
 readyBtn.addEventListener("click", () => {
-  console.log("// DEBUG: readyBtn => clicked => playerReady");
   socket.emit("playerReady");
   readyBtn.disabled = true;
 });
 
 doneBtn.addEventListener("click", () => {
-  console.log(`// DEBUG: doneBtn => clicked => shipsPlaced=${shipsPlaced}, maxShips=${maxShips}`);
   if (shipsPlaced === maxShips) {
     isDonePlacing = true;
     doneBtn.disabled = true;
-    console.log("// DEBUG: Emitting playerDone => isDonePlacing=true");
     socket.emit("playerDone");
-
-    // We have 3 ships placed => track them
-    myShipCount = 3;  // Now we know how many ships WE have
-
+    myShipCount = 3;
     if (myPlayerNumber === "1") {
       playerBoard.style.pointerEvents = "none";
     } else {
@@ -205,28 +222,22 @@ doneBtn.addEventListener("click", () => {
 createBoard(playerBoard, "player");
 createBoard(opponentBoard, "opponent");
 
-/** 
- * If I'm Player1 => #opponent-board is where I fire
- * If I'm Player2 => #player-board is where I fire
- */
-function getOpponentBoardElement() {
-  if (myPlayerNumber === "1") {
-    return opponentBoard;
-  } else {
-    return playerBoard;
-  }
+//------------------------------------------
+// Functions
+//------------------------------------------
+
+function getOpponentBoard() {
+  return (myPlayerNumber === "1") ? opponentBoard : playerBoard;
 }
 
-/** Just a helper to track if the game ended. */
-let gameEnded = false;
 function endGame() {
   gameEnded = true;
   isMyTurn = false;
-  // disable boards
   playerBoard.style.pointerEvents = "none";
   opponentBoard.style.pointerEvents = "none";
 }
 
+/** Create a 10×10 grid */
 function createBoard(board, prefix) {
   board.style.pointerEvents = "none";
   for (let i = 0; i < 100; i++) {
@@ -235,7 +246,6 @@ function createBoard(board, prefix) {
     board.appendChild(cell);
 
     cell.addEventListener("click", () => {
-      console.log(`// DEBUG: CLICK cell=${cell.id}, isMyTurn=${isMyTurn}, canPlaceShips=${canPlaceShips}, isDonePlacing=${isDonePlacing}, firedThisTurn=${firedThisTurn}`);
       if (!isDonePlacing && canPlaceShips) {
         handlePlacement(prefix, cell);
       } else if (isDonePlacing && isMyTurn) {
@@ -272,10 +282,9 @@ function handlePlacement(prefix, cell) {
   }
 }
 
-//let firedThisTurn = false;
 function handleFiring(prefix, index) {
   if (firedThisTurn) {
-    console.log("// DEBUG: handleFiring => firedThisTurn=true => ignoring second shot");
+    console.log("// DEBUG: already fired => ignoring");
     return;
   }
 
@@ -298,6 +307,7 @@ function handleFiring(prefix, index) {
   socket.emit("fire", { room: currentRoom, x, y });
 }
 
+/** For normal game messages on the right panel (#messages) */
 function addMessage(text) {
   const div = document.createElement("div");
   div.textContent = text;

@@ -19,7 +19,6 @@ app.get("/", (req, res) => {
  *   readyCount: 0,
  *   doneCount: 0,
  *   shotsTaken: 0  // 1 shot max per turn
- * }
  */
 const games = {};
 let waitingPlayer = null;
@@ -75,10 +74,7 @@ io.on("connection", (socket) => {
   // ========== playerReady ==========
   socket.on("playerReady", () => {
     const foundRoom = findRoomForPlayer(socket.id);
-    if (!foundRoom) {
-      console.log("// DEBUG: playerReady but no room found for", socket.id);
-      return;
-    }
+    if (!foundRoom) return;
     const game = games[foundRoom];
 
     game.readyCount++;
@@ -92,10 +88,7 @@ io.on("connection", (socket) => {
   // ========== playerDone ==========
   socket.on("playerDone", () => {
     const foundRoom = findRoomForPlayer(socket.id);
-    if (!foundRoom) {
-      console.log("// DEBUG: playerDone but no room found for", socket.id);
-      return;
-    }
+    if (!foundRoom) return;
     const game = games[foundRoom];
 
     game.doneCount++;
@@ -151,7 +144,6 @@ io.on("connection", (socket) => {
     socket.to(room).emit("fireResultForShooter", { x, y, result });
 
     // Now swap turn from vantage of the old attacker
-    // i.e. if the old attacker was game.turn, the new turn is the other ID
     const oldAttacker = game.turn;
     const nextTurn = game.players.find((id) => id !== oldAttacker);
 
@@ -162,6 +154,18 @@ io.on("connection", (socket) => {
     game.shotsTaken = 0;
     console.log(`// DEBUG: shotsTaken reset to 0 in room=${room}`);
     io.to(game.turn).emit("turn", game.turn);
+  });
+
+  // ========== chatMessage ==========
+  socket.on("chatMessage", (text) => {
+    const foundRoom = findRoomForPlayer(socket.id);
+    if (!foundRoom) return;
+
+    // Relay the message to *all* players in the room
+    io.to(foundRoom).emit("chatMessage", {
+      from: socket.id,
+      text
+    });
   });
 
   // ========== disconnect ==========
@@ -181,6 +185,7 @@ io.on("connection", (socket) => {
   });
 });
 
+// Helper
 function findRoomForPlayer(playerId) {
   for (const [rId, game] of Object.entries(games)) {
     if (game.players.includes(playerId)) {

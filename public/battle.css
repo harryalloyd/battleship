@@ -1,22 +1,85 @@
+/* Remove default body margin/padding */
 body {
   font-family: Arial, sans-serif;
-  margin: 0;              /* remove default body margin */
+  margin: 0;
   padding: 0;
-  /* Remove text-align center, so the game boards can be on the left,
-     and the message panel is on the right. */
 }
 
-.board-container {
-  display: flex;         
-  justify-content: center;
-  align-items: flex-start; 
-  gap: 40px;             
+/* ========== TOP BAR (heading + Ready/Done) ========== */
+.top-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   margin-top: 20px;
-  margin-left: 20px;     /* some spacing on the left */
-  margin-right: 150px;   /* reserve space on the right for #messages */
+  margin-bottom: 20px;
+  margin-right: 25px;
+  /* Remove margin-right: 120px to avoid pushing everything left */
 }
 
-/* Each board is 10×10 grid of cells */
+.button-row {
+  margin-top: 10px;
+  display: flex;
+  gap: 10px;
+}
+
+/* ========== MAIN CONTAINER: chat on left, boards center, messages right ========== */
+.main-container {
+  display: flex;
+  align-items: flex-start;
+  /* Let’s keep a bit of left margin and right margin
+     so #messages can sit to the right. */
+  margin: 0 150px 0 20px; 
+}
+
+/* ========== CHAT ========== */
+.chat-container {
+  width: 280px;
+  margin-right: 20px; /* spacing between chat and boards */
+  background: #f3f3f3;
+  padding: 10px;
+  border-radius: 5px;
+  height: 600px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 0 5px rgba(0,0,0,0.3);
+
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  margin-bottom: 5px;
+  padding: 5px;
+}
+
+.chat-input-row {
+  display: flex;
+  gap: 5px;
+}
+
+#chat-input {
+  flex: 1;
+  padding: 4px;
+}
+#chat-send {
+  width: 60px;
+  padding: 4px;
+}
+
+/* ========== BOARD CONTAINER IN THE CENTER ========== */
+.board-container {
+  /* Remove old margin-left/right so they don’t conflict with .main-container’s margin */
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 40px;
+  margin: 0;  /* let .main-container handle outer margins */
+  margin-top: 20px; /* optional vertical spacing */
+  margin-left: 50px;
+}
+
+/* ========== THE BOARDS THEMSELVES ========== */
 .board {
   display: grid;
   grid-template-columns: repeat(10, 30px);
@@ -25,7 +88,6 @@ body {
   width: max-content;
 }
 
-/* existing board-cell classes ... */
 .board div {
   width: 30px;
   height: 30px;
@@ -43,7 +105,7 @@ body {
   background-color: gray;
 }
 
-/* ========== NEW: the messages panel on the right ========== */
+/* ========== MESSAGES PANEL ON THE RIGHT ========== */
 #messages {
   position: absolute;
   top: 20px;
@@ -53,24 +115,7 @@ body {
   border: 1px solid #ccc;
   padding: 10px;
   overflow-y: auto;
-  text-align: left;  /* left-justify the text history */
   background: #fafafa;
   box-shadow: 0 0 5px rgba(0,0,0,0.3);
-  margin-top: 50px;
-}
-
-.top-bar {
-  display: flex;           /* horizontal layout */
-  flex-direction: column;  /* stack the heading above the buttons */
-  align-items: center;     /* center horizontally */
-  margin-top: 20px;        /* some spacing from the top */
-  margin-bottom: 20px;     /* optional spacing before the boards */
-  margin-right: 140px;
-}
-
-/* The row that holds the two buttons side by side */
-.button-row {
-  margin-top: 10px;
-  display: flex;
-  gap: 10px;      /* space between the two buttons */
+  margin-top: 130px; /* optional vertical offset */
 }

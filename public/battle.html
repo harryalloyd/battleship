@@ -8,7 +8,7 @@
 </head>
 <body>
 
-  <!-- NEW container for heading + buttons -->
+  <!-- Top bar with heading + Ready/Done -->
   <div class="top-bar">
     <h1>Battleship</h1>
     <div class="button-row">
@@ -16,22 +16,35 @@
       <button id="doneBtn" disabled>Done</button>
     </div>
   </div>
-  <!-- end of .top-bar -->
 
-  <!-- Container for both boards -->
-  <div class="board-container">
-    <div>
-      <h2>Player 1's Board</h2>
-      <div id="player-board" class="board"></div>
+  <!-- main-container: chat on left, boards center, #messages absolute right -->
+  <div class="main-container">
+
+    <!-- Chat on the left -->
+    <div class="chat-container">
+      <h2>Chat</h2>
+      <div id="chat-messages" class="chat-messages"></div>
+      <div class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Type a message..." />
+        <button id="chat-send">Send</button>
+      </div>
     </div>
-    <div>
-      <h2>Player 2's Board</h2>
-      <div id="opponent-board" class="board"></div>
+
+    <!-- Boards in the center -->
+    <div class="board-container">
+      <div>
+        <h2>Player 1's Board</h2>
+        <div id="player-board" class="board"></div>
+      </div>
+      <div>
+        <h2>Player 2's Board</h2>
+        <div id="opponent-board" class="board"></div>
+      </div>
     </div>
+
+    <!-- game messages on the right -->
+    <div id="messages"></div>
   </div>
-
-  <!-- The message panel absolutely positioned on the right -->
-  <div id="messages"></div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script src="battle.js"></script>
