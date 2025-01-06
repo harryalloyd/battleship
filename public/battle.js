@@ -12,7 +12,7 @@ const chatMessages = document.getElementById("chat-messages");
 const chatInput    = document.getElementById("chat-input");
 const chatSend     = document.getElementById("chat-send");
 
-// Spinner (waiting overlay)
+// Spinner
 const spinner = document.getElementById("spinner");
 
 // Username overlay
@@ -20,10 +20,10 @@ const usernameOverlay = document.getElementById("username-overlay");
 const usernameInput   = document.getElementById("username-input");
 const usernameBtn     = document.getElementById("username-btn");
 
-// Show the spinner initially, waiting for second player
+// Show the spinner immediately (waiting for second player to arrive)
 spinner.classList.remove('hidden');
 
-// Game state
+// State
 let myPlayerNumber = null;
 let shipsPlaced = 0;
 const maxShips = 3;
@@ -34,50 +34,58 @@ const myShipCells = new Set();
 let isMyTurn = false;
 let currentRoom = null;
 let firedThisTurn = false; 
-
-// Win condition
 let myShipCount = 0;    
 let enemyShipCount = 3; 
-
 let gameEnded = false;
 
-//** We'll store username here, and let the user pick it after spinner is gone. */
+// For usernames
 let myUsername = "Me";
-let opponentUsername = "Opponent";
+let opponentUsername = "Opponent"; // This gets updated when we see "opponentUsername" event
 
 //------------------------------------------
 // Socket Listeners
 //------------------------------------------
 
 socket.on("connect", () => {
-  console.log("// DEBUG: Client connected, ID =", socket.id);
+  console.log("// DEBUG: Client connected =>", socket.id);
 });
 
+socket.on("assignRoom", (roomName) => {
+  currentRoom = roomName;
+  console.log("// DEBUG: assignRoom =>", roomName);
+});
+
+// As soon as second player arrives, we get "bothPlayersConnected"
+socket.on("bothPlayersConnected", () => {
+  // Hide the spinner right away
+  spinner.classList.add('hidden');
+  // Show username overlay
+  usernameOverlay.classList.remove('hidden');
+});
+
+// The server tells me if I'm "1" or "2"
 socket.on("playerNumber", (num) => {
   myPlayerNumber = num;
-  console.log("// DEBUG: I am Player", num);
-
-  // Initially disable boards
-  playerBoard.style.pointerEvents = "none";
-  opponentBoard.style.pointerEvents = "none";
+  console.log("// DEBUG: I am playerNumber =", num);
 });
 
+// The server's "message"
 socket.on("message", (msg) => {
   addMessage(msg);
-  console.log("// DEBUG: [message] =>", msg);
 });
 
-// If both players are ready, let's hide spinner + show username overlay
+// If the server sets an "opponentUsername" for me
+socket.on("opponentUsername", (username) => {
+  // Now we know the opponent's actual name
+  console.log("// DEBUG: got opponentUsername =>", username);
+  opponentUsername = username;
+});
+
+// ========== Handling "bothPlayersReady" AFTER they've clicked Ready. ========== 
 socket.on("bothPlayersReady", () => {
   addMessage("Both players ready. Place your 3 ships!");
   canPlaceShips = true;
   enemyShipCount = 3;
-
-  // Hide the spinner
-  spinner.classList.add('hidden');
-
-  // Show the username overlay for the user to pick a name
-  usernameOverlay.classList.remove('hidden');
 
   if (myPlayerNumber === "1") {
     playerBoard.style.pointerEvents = "auto";
@@ -86,18 +94,17 @@ socket.on("bothPlayersReady", () => {
   }
 });
 
-// Once both players are done placing ships
+// Once both done placing
 socket.on("bothPlayersDone", () => {
   addMessage("Both players placed ships! Let the battle begin.");
   playerBoard.style.pointerEvents = "none";
   opponentBoard.style.pointerEvents = "none";
 });
 
-// Turn event
+// Turn event => who fires
 socket.on("turn", (playerId) => {
   isMyTurn = false;
   firedThisTurn = false;
-
   playerBoard.style.pointerEvents = "none";
   opponentBoard.style.pointerEvents = "none";
 
@@ -112,7 +119,7 @@ socket.on("turn", (playerId) => {
   }
 });
 
-// Opponent fired => check if it's a hit
+// Opponent fires
 socket.on("fired", ({ x, y }) => {
   const cellId = (myPlayerNumber === "1")
     ? `player-${x + y * 10}`
@@ -135,7 +142,7 @@ socket.on("fired", ({ x, y }) => {
   }
 });
 
-// Our shot outcome
+// We see the result of our shot
 socket.on("fireResultForShooter", ({ x, y, result }) => {
   let cellId;
   if (myPlayerNumber === "1") {
@@ -143,7 +150,6 @@ socket.on("fireResultForShooter", ({ x, y, result }) => {
   } else {
     cellId = `player-${x + y * 10}`;
   }
-
   const cell = document.getElementById(cellId);
   if (!cell) return;
 
@@ -161,36 +167,26 @@ socket.on("fireResultForShooter", ({ x, y, result }) => {
   }
 });
 
-// Assign the room
-socket.on("assignRoom", (roomName) => {
-  currentRoom = roomName;
-  console.log("// DEBUG: assignRoom =>", roomName);
-});
+// ========== Chat ==========
+// Now we also get a username from the server if it is included
+socket.on("chatMessage", ({ from, username, text }) => {
+  // If from me, we already displayed
+  if (from === socket.id) return;
 
-// Error event
-socket.on("error", (msg) => {
-  addMessage("Error: " + msg);
-  console.warn("// DEBUG [server error]:", msg);
-});
-
-// ========== Chat Logic ==========
-socket.on("chatMessage", ({ from, text }) => {
-  if (from === socket.id) {
-    return; // we already displayed "Me: text"
-  }
-  // Otherwise, show "opponentUsername: text"
-  addChatMessage(opponentUsername, text);
+  addChatMessage(username, text);
 });
 
 //------------------------------------------
-// DOM event listeners
+// DOM event handlers
 //------------------------------------------
 
+// "Ready" => server increments readyCount
 readyBtn.addEventListener("click", () => {
   socket.emit("playerReady");
   readyBtn.disabled = true;
 });
 
+// "Done" => placed all ships
 doneBtn.addEventListener("click", () => {
   if (shipsPlaced === maxShips) {
     isDonePlacing = true;
@@ -205,7 +201,7 @@ doneBtn.addEventListener("click", () => {
   }
 });
 
-// Chat
+// Chat send
 chatSend.addEventListener("click", () => {
   const text = chatInput.value.trim();
   if (text) {
@@ -222,19 +218,19 @@ chatInput.addEventListener("keydown", (e) => {
 
 // Username
 usernameBtn.addEventListener("click", () => {
-  const name = usernameInput.value.trim();
-  if (name) {
-    myUsername = name;
-    // Optionally, guess that the other player's username is something else 
-    // or show "???". Or you can exchange username info via server if you want.
-    opponentUsername = "???";
-
+  const chosenName = usernameInput.value.trim();
+  if (chosenName) {
+    myUsername = chosenName;
+    // Hide overlay
     usernameOverlay.classList.add('hidden');
+
+    // Send to server so the other client sees it
+    socket.emit("setUsername", chosenName);
   }
 });
 
 //------------------------------------------
-// Helper Functions
+// Helper functions
 //------------------------------------------
 
 function getOpponentBoard() {
@@ -268,14 +264,15 @@ function createBoard(board, prefix) {
     });
   }
 }
+
 function handlePlacement(prefix, cell) {
   if (shipsPlaced >= maxShips) return;
 
-  const isCorrectBoard =
+  const correctBoard =
     (myPlayerNumber === "1" && prefix === "player") ||
     (myPlayerNumber === "2" && prefix === "opponent");
 
-  if (!isCorrectBoard) {
+  if (!correctBoard) {
     addMessage("That's your own board, you can't fire there.");
     return;
   }
@@ -290,14 +287,15 @@ function handlePlacement(prefix, cell) {
     }
   }
 }
+
 function handleFiring(prefix, index) {
   if (firedThisTurn) return;
 
-  const isOpponentBoard =
+  const isOppBoard =
     (myPlayerNumber === "1" && prefix === "opponent") ||
     (myPlayerNumber === "2" && prefix === "player");
 
-  if (!isOpponentBoard) {
+  if (!isOppBoard) {
     addMessage("That's your own board, can't fire there.");
     return;
   }
@@ -311,11 +309,13 @@ function handleFiring(prefix, index) {
   const y = Math.floor(index / 10);
   socket.emit("fire", { room: currentRoom, x, y });
 }
+
 function addMessage(text) {
   const div = document.createElement("div");
   div.textContent = text;
   messages.appendChild(div);
 }
+
 function addChatMessage(sender, msg) {
   const div = document.createElement("div");
   div.textContent = sender + ": " + msg;

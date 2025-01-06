@@ -18,7 +18,8 @@ app.get("/", (req, res) => {
  *   turn: <socketId of the current attacker>,
  *   readyCount: 0,
  *   doneCount: 0,
- *   shotsTaken: 0  // 1 shot max per turn
+ *   shotsTaken: 0,
+ *   usernames: { socketIdP1: "Alice", socketIdP2: "Bob" } // NEW: store usernames
  */
 const games = {};
 let waitingPlayer = null;
@@ -30,46 +31,71 @@ io.on("connection", (socket) => {
   let roomId = null;
 
   if (!waitingPlayer) {
-    // ========== This is Player 1 ==========
+    // === Player 1 ===
     waitingPlayer = socket;
     playerNumber = "1";
     console.log("// DEBUG: Assigning this socket as P1 =>", socket.id);
     socket.emit("message", "Waiting for another player...");
   } else {
-    // ========== This is Player 2 ==========
+    // === Player 2 ===
     playerNumber = "2";
     roomId = `${waitingPlayer.id}-${socket.id}`;
 
     waitingPlayer.join(roomId);
     socket.join(roomId);
 
-    // Initialize the game
+    // Create a new game object
     games[roomId] = {
       players: [waitingPlayer.id, socket.id],
       turn: waitingPlayer.id, // P1’s turn first
       readyCount: 0,
       doneCount: 0,
-      shotsTaken: 0
+      shotsTaken: 0,
+      usernames: {} // Will fill in once we get them
     };
 
-    console.log(`// DEBUG: Created room = ${roomId}`);
-    console.log("// DEBUG:   => players:", games[roomId].players);
+    console.log(`// DEBUG: Created room = ${roomId} with players:`, games[roomId].players);
 
     waitingPlayer.emit("assignRoom", roomId);
     socket.emit("assignRoom", roomId);
 
+    // Let the clients know they’re “1” or “2”
+    waitingPlayer.emit("playerNumber", "1");
+    socket.emit("playerNumber", "2");
+
     waitingPlayer.emit("message", "Game started! Your turn. (You are Player 1)");
     socket.emit("message", "Game started! Opponent's turn. (You are Player 2)");
 
-    // Let P1 know it's their turn
-    console.log(`// DEBUG: Telling P1 (ID=${games[roomId].turn}) to start`);
+    // Let P1 know it’s their turn
     io.to(games[roomId].turn).emit("turn", games[roomId].turn);
+
+    // Let both clients know: we now have 2 players => stop spinner
+    io.to(roomId).emit("bothPlayersConnected"); 
 
     waitingPlayer = null;
   }
 
-  // Let client know if they're "1" or "2"
-  socket.emit("playerNumber", playerNumber);
+  // If we never created a room yet, we’re P1
+  if (!roomId && waitingPlayer === socket) {
+    // P1 doesn't have a room until P2 arrives, but let's at least do:
+    socket.emit("playerNumber", playerNumber); // "1"
+  }
+
+  // ========== handle "setUsername" ==========
+  socket.on("setUsername", (username) => {
+    const foundRoom = findRoomForPlayer(socket.id);
+    if (!foundRoom) return;
+
+    const game = games[foundRoom];
+    if (!game.usernames) {
+      game.usernames = {};
+    }
+    // Store the username under socket.id
+    game.usernames[socket.id] = username;
+
+    // Let the other client know the new username
+    socket.to(foundRoom).emit("opponentUsername", username);
+  });
 
   // ========== playerReady ==========
   socket.on("playerReady", () => {
@@ -78,9 +104,7 @@ io.on("connection", (socket) => {
     const game = games[foundRoom];
 
     game.readyCount++;
-    console.log(`// DEBUG: PlayerReady from ${socket.id}, readyCount = ${game.readyCount} in room ${foundRoom}`);
     if (game.readyCount === 2) {
-      console.log(`// DEBUG: Both players ready => room=${foundRoom}`);
       io.to(foundRoom).emit("bothPlayersReady");
     }
   });
@@ -92,67 +116,42 @@ io.on("connection", (socket) => {
     const game = games[foundRoom];
 
     game.doneCount++;
-    console.log(`// DEBUG: PlayerDone from ${socket.id}, doneCount = ${game.doneCount} in room ${foundRoom}`);
     if (game.doneCount === 2) {
-      console.log(`// DEBUG: bothPlayersDone => re-emitting turn to ${game.turn}`);
       io.to(foundRoom).emit("bothPlayersDone");
       io.to(game.turn).emit("turn", game.turn);
     }
   });
 
-  // ========== fire (the attacker fires at x,y) ==========
+  // ========== fire ==========
   socket.on("fire", ({ room, x, y }) => {
-    console.log(`// DEBUG: 'fire' => from ${socket.id} => (x=${x}, y=${y}), room=${room}`);
     const game = games[room];
     if (!game) {
       socket.emit("error", "Game not found!");
-      console.log("// DEBUG: No game for room =", room);
       return;
     }
-
-    // Must match the current attacker
     if (game.turn !== socket.id) {
       socket.emit("error", "Not your turn!");
-      console.log(`// DEBUG: 'fire' => but it's not your turn => turn=${game.turn}`);
       return;
     }
-
-    // Only 1 shot per turn
     if (game.shotsTaken >= 1) {
       socket.emit("error", "You already fired this turn!");
-      console.log(`// DEBUG: Rejected second shot from ${socket.id}`);
       return;
     }
 
     game.shotsTaken++;
-    console.log(`// DEBUG: Accepting shot => shotsTaken now = ${game.shotsTaken}`);
-
-    // Relay the shot to the other player
     socket.to(room).emit("fired", { x, y });
   });
 
-  // ========== fireResult (the defender says hit or miss) ==========
+  // ========== fireResult ==========
   socket.on("fireResult", ({ room, x, y, result }) => {
-    console.log(`// DEBUG: 'fireResult' => from ${socket.id} => result=${result}, (x=${x}, y=${y}), room=${room}`);
     const game = games[room];
-    if (!game) {
-      console.log("// DEBUG: 'fireResult' => no game found =>", room);
-      return;
-    }
+    if (!game) return;
 
-    // Relay to the attacker
     socket.to(room).emit("fireResultForShooter", { x, y, result });
 
-    // Now swap turn from vantage of the old attacker
     const oldAttacker = game.turn;
-    const nextTurn = game.players.find((id) => id !== oldAttacker);
-
-    console.log(`// DEBUG: Turn was = ${oldAttacker}, switching to ${nextTurn}`);
-    game.turn = nextTurn;
-
-    // Reset shots for the new turn
+    game.turn = game.players.find((id) => id !== oldAttacker);
     game.shotsTaken = 0;
-    console.log(`// DEBUG: shotsTaken reset to 0 in room=${room}`);
     io.to(game.turn).emit("turn", game.turn);
   });
 
@@ -161,23 +160,23 @@ io.on("connection", (socket) => {
     const foundRoom = findRoomForPlayer(socket.id);
     if (!foundRoom) return;
 
-    // Relay the message to *all* players in the room
+    const game = games[foundRoom];
+    const username = (game.usernames && game.usernames[socket.id]) || "???";
+
     io.to(foundRoom).emit("chatMessage", {
       from: socket.id,
+      username, // pass along the actual username
       text
     });
   });
 
   // ========== disconnect ==========
   socket.on("disconnect", () => {
-    console.log(`// DEBUG: Player disconnected => ${socket.id}`);
     if (waitingPlayer && waitingPlayer.id === socket.id) {
       waitingPlayer = null;
-      console.log("// DEBUG: This disconnected socket was waitingPlayer => reset waitingPlayer=null");
     }
     for (const [rId, game] of Object.entries(games)) {
       if (game.players.includes(socket.id)) {
-        console.log(`// DEBUG: Deleting game in room=${rId}, because ${socket.id} disconnected`);
         io.to(rId).emit("message", "Opponent disconnected. Game over.");
         delete games[rId];
       }
@@ -197,5 +196,5 @@ function findRoomForPlayer(playerId) {
 
 const PORT = 3000;
 server.listen(PORT, () => {
-  console.log(`// DEBUG: Server running on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
