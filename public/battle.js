@@ -19,7 +19,12 @@ const myShipCells = new Set();
 
 let isMyTurn = false;
 let currentRoom = null;
-let firedThisTurn = false; // local boolean to block repeated shots
+let firedThisTurn = false; 
+
+// ========== NEW: For Win Condition ==========
+let myShipCount = 0;     // how many ships I have left
+let enemyShipCount = 3;  // how many ships the opponent has left
+// We'll set myShipCount=3 once we place all 3 ships
 
 //--------------------------------------------------
 //  Socket Listeners
@@ -32,6 +37,7 @@ socket.on("connect", () => {
 socket.on("playerNumber", (num) => {
   myPlayerNumber = num;
   console.log("// DEBUG: I am Player", num);
+
   // Initially disable both boards
   playerBoard.style.pointerEvents = "none";
   opponentBoard.style.pointerEvents = "none";
@@ -45,19 +51,21 @@ socket.on("message", (msg) => {
 // Both players ready => place ships
 socket.on("bothPlayersReady", () => {
   addMessage("Both players ready. Place your 3 ships!");
-  console.log("// DEBUG: bothPlayersReady => canPlaceShips=true for me");
+  console.log("// DEBUG: bothPlayersReady => canPlaceShips=true");
   canPlaceShips = true;
+
+  // Because the opponent is also placing exactly 3 ships
+  enemyShipCount = 3; 
+
   // Enable pointer events on your own board only
   if (myPlayerNumber === "1") {
-    console.log("// DEBUG: I am P1 => enabling #player-board for ship placement");
     playerBoard.style.pointerEvents = "auto";
   } else {
-    console.log("// DEBUG: I am P2 => enabling #opponent-board for ship placement");
     opponentBoard.style.pointerEvents = "auto";
   }
 });
 
-// Both players done => wait for turn
+// Both players done => disable boards, wait for turn
 socket.on("bothPlayersDone", () => {
   addMessage("Both players placed ships! Let the battle begin.");
   console.log("// DEBUG: bothPlayersDone => disabling both boards, waiting for 'turn'");
@@ -65,24 +73,22 @@ socket.on("bothPlayersDone", () => {
   opponentBoard.style.pointerEvents = "none";
 });
 
-// Turn event => who fires next
+// "turn" => who fires next
 socket.on("turn", (playerId) => {
-  console.log("// DEBUG: 'turn' => belongs to", playerId, ", me=", socket.id);
-  // Reset
+  console.log("// DEBUG: 'turn' => belongs to", playerId, " (I am=", socket.id, ")");
   isMyTurn = false;
   firedThisTurn = false;
-  // disable both boards by default
   playerBoard.style.pointerEvents = "none";
   opponentBoard.style.pointerEvents = "none";
 
   if (playerId === socket.id) {
     isMyTurn = true;
     addMessage("It's your turn to fire!");
-    console.log("// DEBUG: It's my turn => enabling pointerEvents on opponent board");
-    getOpponentBoardElement().style.pointerEvents = "auto";
+    if (!gameEnded) {
+      getOpponentBoardElement().style.pointerEvents = "auto";
+    }
   } else {
     addMessage("Opponent's turn. Please wait.");
-    console.log("// DEBUG: It's the other player's turn");
   }
 });
 
@@ -95,16 +101,24 @@ socket.on("fired", ({ x, y }) => {
 
   const cell = document.getElementById(cellId);
   if (!cell) {
-    console.log(`// DEBUG: 'fired' => cannot find cellId=${cellId}, ignoring`);
+    console.log(`// DEBUG: can't find cellId=${cellId}, ignoring`);
     return;
   }
 
   if (myShipCells.has(cellId)) {
-    console.log(`// DEBUG: That's a HIT on cellId=${cellId}`);
+    console.log(`// DEBUG: Opponent HIT on ${cellId}`);
     cell.classList.add("hit");
+
+    // Decrement myShipCount
+    myShipCount--;
+    if (myShipCount === 0) {
+      addMessage("You Lost!");
+      endGame();
+    }
+
     socket.emit("fireResult", { room: currentRoom, x, y, result: "hit" });
   } else {
-    console.log(`// DEBUG: That's a MISS on cellId=${cellId}`);
+    console.log(`// DEBUG: Opponent MISS on ${cellId}`);
     cell.classList.add("miss");
     socket.emit("fireResult", { room: currentRoom, x, y, result: "miss" });
   }
@@ -118,24 +132,32 @@ socket.on("fireResultForShooter", ({ x, y, result }) => {
   } else {
     cellId = `player-${x + y * 10}`;
   }
-  console.log(`// DEBUG: 'fireResultForShooter' => (x=${x}, y=${y}), result=${result}, cellId=${cellId}`);
+
+  console.log(`// DEBUG: 'fireResultForShooter' => x=${x}, y=${y}, result=${result}, cellId=${cellId}`);
 
   const cell = document.getElementById(cellId);
   if (!cell) {
-    console.log(`// DEBUG: 'fireResultForShooter' => cannot find cell=${cellId}`);
+    console.log(`// DEBUG: can't find cell=${cellId}`);
     return;
   }
 
   if (result === "hit") {
     cell.classList.add("hit");
     addMessage(`Shot at (${x}, ${y}) was a HIT!`);
+
+    // Decrement enemyShipCount
+    enemyShipCount--;
+    if (enemyShipCount === 0) {
+      addMessage("You Won!");
+      endGame();
+    }
   } else {
     cell.classList.add("miss");
     addMessage(`Shot at (${x}, ${y}) was a miss.`);
   }
 });
 
-// Server assigns a room
+// The server assigns a room
 socket.on("assignRoom", (roomName) => {
   currentRoom = roomName;
   console.log("// DEBUG: assignRoom =>", roomName);
@@ -151,6 +173,9 @@ socket.on("error", (msg) => {
 //  DOM Setup & Handlers
 //--------------------------------------------------
 
+//const readyBtn = document.getElementById("readyBtn");
+//const doneBtn = document.getElementById("doneBtn");
+
 readyBtn.addEventListener("click", () => {
   console.log("// DEBUG: readyBtn => clicked => playerReady");
   socket.emit("playerReady");
@@ -164,11 +189,13 @@ doneBtn.addEventListener("click", () => {
     doneBtn.disabled = true;
     console.log("// DEBUG: Emitting playerDone => isDonePlacing=true");
     socket.emit("playerDone");
+
+    // We have 3 ships placed => track them
+    myShipCount = 3;  // Now we know how many ships WE have
+
     if (myPlayerNumber === "1") {
-      console.log("// DEBUG: P1 => disabling #player-board after done placing");
       playerBoard.style.pointerEvents = "none";
     } else {
-      console.log("// DEBUG: P2 => disabling #opponent-board after done placing");
       opponentBoard.style.pointerEvents = "none";
     }
   }
@@ -179,51 +206,51 @@ createBoard(playerBoard, "player");
 createBoard(opponentBoard, "opponent");
 
 /** 
- * If I'm Player1 => the opponent board is #opponent-board
- * If I'm Player2 => the opponent board is #player-board
+ * If I'm Player1 => #opponent-board is where I fire
+ * If I'm Player2 => #player-board is where I fire
  */
 function getOpponentBoardElement() {
   if (myPlayerNumber === "1") {
-    console.log("// DEBUG: getOpponentBoardElement => returning opponentBoard");
     return opponentBoard;
   } else {
-    console.log("// DEBUG: getOpponentBoardElement => returning playerBoard");
     return playerBoard;
   }
 }
 
-function createBoard(board, prefix) {
-  console.log("// DEBUG: createBoard => prefix=", prefix);
-  board.style.pointerEvents = "none";
+/** Just a helper to track if the game ended. */
+let gameEnded = false;
+function endGame() {
+  gameEnded = true;
+  isMyTurn = false;
+  // disable boards
+  playerBoard.style.pointerEvents = "none";
+  opponentBoard.style.pointerEvents = "none";
+}
 
+function createBoard(board, prefix) {
+  board.style.pointerEvents = "none";
   for (let i = 0; i < 100; i++) {
     const cell = document.createElement("div");
     cell.id = `${prefix}-${i}`;
     board.appendChild(cell);
 
     cell.addEventListener("click", () => {
-      console.log(`// DEBUG: CLICK => cell=${cell.id}, isMyTurn=${isMyTurn}, canPlaceShips=${canPlaceShips}, isDonePlacing=${isDonePlacing}, firedThisTurn=${firedThisTurn}`);
-
+      console.log(`// DEBUG: CLICK cell=${cell.id}, isMyTurn=${isMyTurn}, canPlaceShips=${canPlaceShips}, isDonePlacing=${isDonePlacing}, firedThisTurn=${firedThisTurn}`);
       if (!isDonePlacing && canPlaceShips) {
         handlePlacement(prefix, cell);
       } else if (isDonePlacing && isMyTurn) {
         handleFiring(prefix, i);
       } else if (!isMyTurn) {
         addMessage("It's not your turn!");
-        console.log("// DEBUG: ignoring click => not my turn");
       } else {
         addMessage("You must place your ships first!");
-        console.log("// DEBUG: ignoring click => haven't placed ships");
       }
     });
   }
 }
 
 function handlePlacement(prefix, cell) {
-  if (shipsPlaced >= maxShips) {
-    console.log("// DEBUG: handlePlacement => already have 3 ships");
-    return;
-  }
+  if (shipsPlaced >= maxShips) return;
 
   const isCorrectBoard =
     (myPlayerNumber === "1" && prefix === "player") ||
@@ -231,7 +258,6 @@ function handlePlacement(prefix, cell) {
 
   if (!isCorrectBoard) {
     addMessage("That's your own board, you can't fire there.");
-    console.log("// DEBUG: handlePlacement => tried placing on the wrong board for my role");
     return;
   }
 
@@ -239,22 +265,15 @@ function handlePlacement(prefix, cell) {
     cell.classList.add("ship");
     myShipCells.add(cell.id);
     shipsPlaced++;
-    console.log(`// DEBUG: handlePlacement => placed ship at cell=${cell.id}, totalShips=${shipsPlaced}`);
     if (shipsPlaced === maxShips) {
       addMessage("All your ships placed!");
       doneBtn.disabled = false;
-      console.log("// DEBUG: handlePlacement => done placing => enabling doneBtn");
     }
-  } else {
-    console.log("// DEBUG: handlePlacement => cell already has a 'ship'");
   }
 }
 
-/**
- * Fire at the opponent’s board, using the "firedThisTurn" guard
- */
+//let firedThisTurn = false;
 function handleFiring(prefix, index) {
-  // If we already fired, do nothing
   if (firedThisTurn) {
     console.log("// DEBUG: handleFiring => firedThisTurn=true => ignoring second shot");
     return;
@@ -266,22 +285,16 @@ function handleFiring(prefix, index) {
 
   if (!isOpponentBoard) {
     addMessage("That's your own board, can't fire there.");
-    console.log("// DEBUG: handleFiring => tried to fire on the wrong board");
     return;
   }
 
-  // Mark that we have fired
   firedThisTurn = true;
-  console.log("// DEBUG: handleFiring => set firedThisTurn=true => no more shots this turn");
-
-  // Immediately disable pointer events
   isMyTurn = false;
   playerBoard.style.pointerEvents = "none";
   opponentBoard.style.pointerEvents = "none";
 
   const x = index % 10;
   const y = Math.floor(index / 10);
-  console.log(`// DEBUG: handleFiring => sending 'fire' => (x=${x}, y=${y}), room=${currentRoom}`);
   socket.emit("fire", { room: currentRoom, x, y });
 }
 
