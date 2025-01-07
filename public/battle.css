@@ -13,6 +13,7 @@ body {
   align-items: center;
   margin-top: 20px;
   margin-bottom: 20px;
+  
 }
 
 /* Make the heading bigger and bolder */
@@ -39,6 +40,8 @@ body {
   color: #fff;
   cursor: pointer;
   transition: background-color 0.3s ease;
+  box-shadow: 0 0 5px rgba(0,0,0,0.4);
+
 }
 
 .big-button:disabled {
@@ -181,7 +184,9 @@ body {
   border: 1px solid #555;
   cursor: pointer;
   transition: background-color 0.2s ease;
+  box-shadow: 0 0 5px rgba(0,0,0,0.4);
 }
+
 .board div:hover {
   background-color: #86d4ff;  /* hover slightly lighter */
 }
@@ -306,6 +311,9 @@ body {
     /* If you want it centered, just text-align: left or center as you prefer */
     text-align: left;
   }
+
+
+
 
 
   /*  -------------------SHIPS------------------ */
