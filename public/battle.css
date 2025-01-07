@@ -307,6 +307,8 @@ body {
     text-align: left;
   }
 
+
+  /*  -------------------SHIPS------------------ */
   .ship-inventory {
     margin-top: 10px;
     display: flex;
@@ -337,4 +339,4 @@ body {
   .ship-block .ship-square:last-child {
     margin-bottom: 0;
   }
-  
+  /*  -------------------SHIPS------------------ */
