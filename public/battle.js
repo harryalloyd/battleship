@@ -188,8 +188,11 @@ socket.on("fireResultForShooter", ({ x, y, result }) => {
     enemyShipCount--;
     console.log("enemyShipCount =>", enemyShipCount);
     if (enemyShipCount === 0) {
-      addMessage("You Won! (You hit all 6 squares)");
-      endGame();
+      cell.classList.add("hit");  // visually show last hit
+      setTimeout(() => {
+        addMessage("You Won!");
+        endGame();
+      }, 50);
     }
   } else {
     cell.classList.add("miss");
@@ -208,6 +211,7 @@ socket.on("rematchStart", () => {
   gameEnded       = false;
   isMyTurn        = false;
   firedThisTurn   = false;
+  rematchBtn.disabled = true; 
   shipsPlaced     = 0;
   isDonePlacing   = false;
   myShipCount     = 0; // back to 0 => place ships => 6 squares
@@ -442,6 +446,13 @@ function addChatMessage(sender, msg) {
 
 function getOpponentBoard() {
   return (myPlayerNumber === "1") ? opponentBoard : playerBoard;
+}
+
+function endGame() {
+  gameEnded = true;
+  playerBoard.style.pointerEvents = "none";
+  opponentBoard.style.pointerEvents = "none";
+  rematchBtn.disabled = false;
 }
 
 //------------------------------------------

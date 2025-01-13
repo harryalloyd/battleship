@@ -128,22 +128,34 @@ io.on("connection", (socket) => {
   // ========== fire ==========
   socket.on("fire", ({ room, x, y }) => {
     const g = games[room];
-    if (!g) {
-      socket.emit("error", "Game not found!");
-      return;
-    }
+    if (!g) return socket.emit("error", "Game not found!");
+  
+    // If it's not your turn, or you already fired, return:
     if (g.turn !== socket.id) {
       socket.emit("error", "Not your turn!");
       return;
     }
+    if (!g.firedPositions) g.firedPositions = new Set();
+  
+    const posKey = `${x},${y}`;
+    if (g.firedPositions.has(posKey)) {
+      // Already fired => do not increment shotsTaken or switch turn
+      socket.emit("error", "You already fired there!");
+      return;
+    }
+  
+    // Otherwise mark it used, increment shots
+    g.firedPositions.add(posKey);
     if (g.shotsTaken >= 1) {
       socket.emit("error", "You already fired this turn!");
       return;
     }
-
+  
     g.shotsTaken++;
     socket.to(room).emit("fired", { x, y });
   });
+
+
 
   // ========== fireResult ==========
   socket.on("fireResult", ({ room, x, y, result }) => {
