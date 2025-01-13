@@ -208,7 +208,8 @@ io.on("connection", (socket) => {
 
       // The same players and usernames remain. We can also pick who starts (P1).
       g.turn = g.players[0]; // default: P1 starts again
-
+      // IMPORTANT: Reset firedPositions so old shots don't block new ones:
+      g.firedPositions = new Set();
       // let them know
       io.to(rId).emit("rematchStart");
       // re-emit a "turn" event to P1
