@@ -139,8 +139,10 @@ io.on("connection", (socket) => {
   
     const posKey = `${x},${y}`;
     if (g.firedPositions.has(posKey)) {
-      // Already fired => do not increment shotsTaken or switch turn
-      socket.emit("error", "You already fired there!");
+      // Already fired => do not flip the turn
+      socket.emit("error", "You already fired that location. Try again!");
+      // Re‐emit turn to the same attacker so they can pick another spot:
+      io.to(g.turn).emit("turn", g.turn);
       return;
     }
   

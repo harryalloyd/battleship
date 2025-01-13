@@ -25,6 +25,9 @@ const usernameBtn     = document.getElementById("username-btn");
 const playerInventory   = document.getElementById("player-inventory");
 const opponentInventory = document.getElementById("opponent-inventory");
 
+const originalPlayerInventoryHTML   = playerInventory.innerHTML;
+const originalOpponentInventoryHTML = opponentInventory.innerHTML;
+
 // Show spinner at start
 spinner.classList.remove("hidden");
 
@@ -208,28 +211,45 @@ socket.on("chatMessage", ({ from, username, text }) => {
 
 // Rematch
 socket.on("rematchStart", () => {
-  gameEnded       = false;
-  isMyTurn        = false;
-  firedThisTurn   = false;
-  rematchBtn.disabled = true; 
-  shipsPlaced     = 0;
-  isDonePlacing   = false;
-  myShipCount     = 0; // back to 0 => place ships => 6 squares
-  enemyShipCount  = 6;
+  // Reset core flags and counts
+  gameEnded         = false;
+  isMyTurn          = false;
+  firedThisTurn     = false;
+  shipsPlaced       = 0;
+  isDonePlacing     = false;
+  myShipCount       = 0; // We have to place 6 squares of ships
+  enemyShipCount    = 6; // Opponent also has 6
   myShipCells.clear();
 
-  // Clear boards
-  for (let i = 0; i < 100; i++) {
-    document.getElementById("player-"+ i).className   = "";
-    document.getElementById("opponent-"+ i).className = "";
-  }
+  // Re-enable the Ready button
+  // (so that each player can "Ready" themselves again)
+  readyBtn.disabled = false;
 
-  readyBtn.disabled   = false;
+  // Also re-disable the Done and Rematch buttons at first
   doneBtn.disabled    = true;
   rematchBtn.disabled = true;
 
-  addMessage("Rematch started! Click Ready to place ships again.");
+  // Re-inject the original inventory HTML for the correct player
+  if (myPlayerNumber === "1") {
+    playerInventory.innerHTML   = originalPlayerInventoryHTML;
+    opponentInventory.innerHTML = "";  // Hide P2's ships if you want
+    activateDragEvents(playerInventory);
+  } else {
+    opponentInventory.innerHTML = originalOpponentInventoryHTML;
+    playerInventory.innerHTML   = "";  // Hide P1's ships if you want
+    activateDragEvents(opponentInventory);
+  }
+
+  // Clear the visual states on every board cell
+  for (let i = 0; i < 100; i++) {
+    document.getElementById("player-" + i).className   = "";
+    document.getElementById("opponent-" + i).className = "";
+  }
+
+  // Tell the user what to do next
+  addMessage("Rematch started! Click 'Ready' to place ships again.");
 });
+
 
 //------------------------------------------
 // DOM events
