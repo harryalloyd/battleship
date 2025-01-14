@@ -20,7 +20,8 @@ app.get("/", (req, res) => {
  *   doneCount: 0,
  *   shotsTaken: 0,
  *   usernames: { socket1Id: "Alice", socket2Id: "Bob" },
- *   rematchCount: 0   // <--- NEW: track how many players requested rematch
+ *   rematchCount: 0,
+ *   firedPositions: Set<string>  // optional: track fired squares
  */
 const games = {};
 let waitingPlayer = null;
@@ -31,8 +32,8 @@ io.on("connection", (socket) => {
   let playerNumber = "";
   let roomId = null;
 
+  // If no waiting player yet, mark this as Player1
   if (!waitingPlayer) {
-    // This is Player1
     waitingPlayer = socket;
     playerNumber = "1";
     console.log("// DEBUG: Marking this as P1 =>", socket.id);
@@ -49,12 +50,13 @@ io.on("connection", (socket) => {
     // Create the game object
     games[roomId] = {
       players: [waitingPlayer.id, socket.id],
-      turn: waitingPlayer.id,
+      turn: waitingPlayer.id,    // P1 starts by default
       readyCount: 0,
       doneCount: 0,
       shotsTaken: 0,
       usernames: {},
-      rematchCount: 0  // <--- track how many players requested rematch
+      rematchCount: 0,
+      // We'll create firedPositions when first shot is fired
     };
 
     console.log(`// DEBUG: Created room=${roomId} with players:`, games[roomId].players);
@@ -79,7 +81,7 @@ io.on("connection", (socket) => {
     waitingPlayer = null;
   }
 
-  // If we’re still "P1" scenario, no second player yet
+  // If still "P1" scenario, no second player yet
   if (!roomId && waitingPlayer === socket) {
     socket.emit("playerNumber", playerNumber); // "1"
   }
@@ -119,6 +121,7 @@ io.on("connection", (socket) => {
     const g = games[rId];
 
     g.doneCount++;
+    // Once both done placing, let the battle begin
     if (g.doneCount === 2) {
       io.to(rId).emit("bothPlayersDone");
       io.to(g.turn).emit("turn", g.turn);
@@ -129,43 +132,42 @@ io.on("connection", (socket) => {
   socket.on("fire", ({ room, x, y }) => {
     const g = games[room];
     if (!g) return socket.emit("error", "Game not found!");
-  
+
     // If it's not your turn, or you already fired, return:
     if (g.turn !== socket.id) {
       socket.emit("error", "Not your turn!");
       return;
     }
     if (!g.firedPositions) g.firedPositions = new Set();
-  
+
     const posKey = `${x},${y}`;
     if (g.firedPositions.has(posKey)) {
       // Already fired => do not flip the turn
       socket.emit("error", "You already fired that location. Try again!");
-      // Re‐emit turn to the same attacker so they can pick another spot:
       io.to(g.turn).emit("turn", g.turn);
       return;
     }
-  
+
     // Otherwise mark it used, increment shots
     g.firedPositions.add(posKey);
     if (g.shotsTaken >= 1) {
       socket.emit("error", "You already fired this turn!");
       return;
     }
-  
+
     g.shotsTaken++;
     socket.to(room).emit("fired", { x, y });
   });
-
-
 
   // ========== fireResult ==========
   socket.on("fireResult", ({ room, x, y, result }) => {
     const g = games[room];
     if (!g) return;
 
+    // Let the shooting client know if it was a hit or miss
     socket.to(room).emit("fireResultForShooter", { x, y, result });
 
+    // Switch turns
     const oldAttacker = g.turn;
     g.turn = g.players.find((id) => id !== oldAttacker);
     g.shotsTaken = 0;
@@ -187,7 +189,7 @@ io.on("connection", (socket) => {
     });
   });
 
-  // ========== requestRematch (NEW) ==========
+  // ========== requestRematch ==========
   socket.on("requestRematch", () => {
     const rId = findRoomForPlayer(socket.id);
     if (!rId) return;
@@ -201,15 +203,13 @@ io.on("connection", (socket) => {
       console.log(`// DEBUG: Both requested rematch => resetting game in room=${rId}`);
 
       // reset the game state
-      g.shotsTaken = 0;
-      g.readyCount = 0;
-      g.doneCount  = 0;
-      g.rematchCount = 0;
+      g.shotsTaken    = 0;
+      g.readyCount    = 0;
+      g.doneCount     = 0;
+      g.rematchCount  = 0;
+      g.turn          = g.players[0]; // P1 starts again
+      g.firedPositions= new Set();    // reset old shots
 
-      // The same players and usernames remain. We can also pick who starts (P1).
-      g.turn = g.players[0]; // default: P1 starts again
-      // IMPORTANT: Reset firedPositions so old shots don't block new ones:
-      g.firedPositions = new Set();
       // let them know
       io.to(rId).emit("rematchStart");
       // re-emit a "turn" event to P1
