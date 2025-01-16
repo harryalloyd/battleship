@@ -47,7 +47,7 @@
       <!-- SPINNER for waiting (initially hidden) -->
       <div id="spinner" class="spinner hidden">
         <div class="loading-circle"></div>
-        <p>Waiting for other player...</p>
+        <p>Waiting for another player to join...</p>
       </div>
 
       <!-- USERNAME OVERLAY (initially hidden) -->
@@ -65,16 +65,19 @@
         <!-- SHIP INVENTORY for Player1, hidden if you're Player2 -->
         <div class="ship-inventory" id="player-inventory">
           <!-- length 1 -->
-          <div class="ship-block" draggable="true" data-length="1" id="p1-ship-1">
+          <div class="ship-block" draggable="true" data-length="2" id="p1-ship-1">
+            <div class="ship-square"></div>
             <div class="ship-square"></div>
           </div>
           <!-- length 2 -->
-          <div class="ship-block" draggable="true" data-length="2" id="p1-ship-2">
+          <div class="ship-block" draggable="true" data-length="3" id="p1-ship-2">
+            <div class="ship-square"></div>
             <div class="ship-square"></div>
             <div class="ship-square"></div>
           </div>
           <!-- length 3 -->
-          <div class="ship-block" draggable="true" data-length="3" id="p1-ship-3">
+          <div class="ship-block" draggable="true" data-length="4" id="p1-ship-3">
+            <div class="ship-square"></div>
             <div class="ship-square"></div>
             <div class="ship-square"></div>
             <div class="ship-square"></div>
@@ -90,16 +93,19 @@
         <!-- SHIP INVENTORY for Player2, hidden if you're Player1 -->
         <div class="ship-inventory" id="opponent-inventory">
           <!-- length 1 -->
-          <div class="ship-block" draggable="true" data-length="1" id="p2-ship-1">
+          <div class="ship-block" draggable="true" data-length="2" id="p2-ship-1">
+            <div class="ship-square"></div>
             <div class="ship-square"></div>
           </div>
           <!-- length 2 -->
-          <div class="ship-block" draggable="true" data-length="2" id="p2-ship-2">
+          <div class="ship-block" draggable="true" data-length="3" id="p2-ship-2">
+            <div class="ship-square"></div>
             <div class="ship-square"></div>
             <div class="ship-square"></div>
           </div>
           <!-- length 3 -->
-          <div class="ship-block" draggable="true" data-length="3" id="p2-ship-3">
+          <div class="ship-block" draggable="true" data-length="4" id="p2-ship-3">
+            <div class="ship-square"></div>
             <div class="ship-square"></div>
             <div class="ship-square"></div>
             <div class="ship-square"></div>

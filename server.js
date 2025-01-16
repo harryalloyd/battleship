@@ -1,5 +1,6 @@
+//============================
 // server.js
-
+//============================
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -24,7 +25,7 @@ app.get("/", (req, res) => {
  *   shotsTaken: 0,
  *   usernames: { socket1Id: "Alice", socket2Id: "Bob" },
  *   rematchCount: 0,
- *   firedPositions: {    // each player's set of squares they've fired
+ *   firedPositions: {
  *       socketIdP1: new Set(),
  *       socketIdP2: new Set()
  *   }
@@ -63,8 +64,6 @@ io.on("connection", (socket) => {
       shotsTaken: 0,
       usernames: {},
       rematchCount: 0,
-
-      // IMPORTANT: separate firedPositions for each player
       firedPositions: {
         [waitingPlayer.id]: new Set(),
         [socket.id]: new Set()
@@ -85,13 +84,13 @@ io.on("connection", (socket) => {
     waitingPlayer.emit("message", "Game started! Your turn. (You are Player 1)");
     socket.emit("message", "Game started! Opponent's turn. (You are Player 2)");
 
-    // Tell P1 to start
-    io.to(games[roomId].turn).emit("turn", games[roomId].turn);
+    // IMPORTANT: Removed the early "turn" event here
+    // (previously: io.to(games[roomId].turn).emit("turn", games[roomId].turn);)
 
     // Both players are connected => remove the spinner
     io.to(roomId).emit("bothPlayersConnected");
 
-    // Clear waiting so next connection will be a new P1
+    // Clear waiting so the next connection will be a new P1
     waitingPlayer = null;
   }
 
@@ -100,7 +99,9 @@ io.on("connection", (socket) => {
     socket.emit("playerNumber", playerNumber); // "1"
   }
 
-  // ========== setUsername ==========
+  //=================================
+  // setUsername
+  //=================================
   socket.on("setUsername", (username) => {
     const foundRoom = findRoomForPlayer(socket.id);
     if (!foundRoom) return;
@@ -115,7 +116,9 @@ io.on("connection", (socket) => {
     io.to(foundRoom).emit("updateUsernames", { p1: p1Name, p2: p2Name });
   });
 
-  // ========== playerReady ==========
+  //=================================
+  // playerReady
+  //=================================
   socket.on("playerReady", () => {
     const rId = findRoomForPlayer(socket.id);
     if (!rId) return;
@@ -127,7 +130,9 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ========== playerDone ==========
+  //=================================
+  // playerDone
+  //=================================
   socket.on("playerDone", () => {
     const rId = findRoomForPlayer(socket.id);
     if (!rId) return;
@@ -137,11 +142,14 @@ io.on("connection", (socket) => {
     // Once both done placing ships, start the battle
     if (g.doneCount === 2) {
       io.to(rId).emit("bothPlayersDone");
+      // Now we inform whoever is "turn" to start
       io.to(g.turn).emit("turn", g.turn);
     }
   });
 
-  // ========== fire ==========
+  //=================================
+  // fire
+  //=================================
   socket.on("fire", ({ room, x, y }) => {
     const g = games[room];
     if (!g) {
@@ -180,7 +188,9 @@ io.on("connection", (socket) => {
     socket.to(room).emit("fired", { x, y });
   });
 
-  // ========== fireResult ==========
+  //=================================
+  // fireResult
+  //=================================
   socket.on("fireResult", ({ room, x, y, result }) => {
     const g = games[room];
     if (!g) return;
@@ -195,7 +205,9 @@ io.on("connection", (socket) => {
     io.to(g.turn).emit("turn", g.turn);
   });
 
-  // ========== chatMessage ==========
+  //=================================
+  // chatMessage
+  //=================================
   socket.on("chatMessage", (text) => {
     const rId = findRoomForPlayer(socket.id);
     if (!rId) return;
@@ -210,7 +222,9 @@ io.on("connection", (socket) => {
     });
   });
 
-  // ========== requestRematch ==========
+  //=================================
+  // requestRematch
+  //=================================
   socket.on("requestRematch", () => {
     const rId = findRoomForPlayer(socket.id);
     if (!rId) return;
@@ -223,7 +237,7 @@ io.on("connection", (socket) => {
     if (g.rematchCount === 2) {
       console.log(`// DEBUG: Both requested rematch => resetting game in room=${rId}`);
 
-      // reset the game state
+      // Reset the game state
       g.shotsTaken    = 0;
       g.readyCount    = 0;
       g.doneCount     = 0;
@@ -243,13 +257,15 @@ io.on("connection", (socket) => {
     }
   });
 
-  // ========== disconnect ==========
+  //=================================
+  // disconnect
+  //=================================
   socket.on("disconnect", () => {
     if (waitingPlayer && waitingPlayer.id === socket.id) {
       // The waiting player (P1) left before a second player arrived
       waitingPlayer = null;
     }
-    // If a player leaves in mid-game
+    // If a player leaves mid-game
     for (const [rId, g] of Object.entries(games)) {
       if (g.players.includes(socket.id)) {
         io.to(rId).emit("message", "Opponent disconnected. Game over.");

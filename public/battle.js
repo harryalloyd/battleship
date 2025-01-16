@@ -33,7 +33,7 @@ spinner.classList.remove("hidden");
 
 // Game state
 let myPlayerNumber = null;
-// We'll place a total of 6 squares (ships are lengths 1+2+3).
+// We'll place a total of 9 squares (ships are lengths 4+2+3).
 let shipsPlaced   = 0;        // how many ships we've placed (3 ships)
 const maxShips    = 3;
 let canPlaceShips = false;
@@ -45,10 +45,10 @@ let currentRoom  = null;
 let firedThisTurn= false;
 let gameEnded    = false;
 
-// We want 6 squares total => for each "hit", we do myShipCount--, 
+// We want 9 squares total => for each "hit", we do myShipCount--, 
 // if it hits 0 => all ships sunk.
 let myShipCount   = 0;  
-let enemyShipCount= 6; // The opponent also has 6 squares total
+let enemyShipCount= 9; // The opponent also has 9 squares total
 
 // Usernames
 let myUsername       = "Me";
@@ -113,11 +113,11 @@ socket.on("updateUsernames", ({ p1, p2 }) => {
 });
 
 socket.on("bothPlayersReady", () => {
-  addMessage("Both players ready. Drag your ships (1,2,3) onto your board!");
+  addMessage("Both players ready. Drag your ships onto your board!");
   canPlaceShips = true;
 
-  // Each side has 1+2+3 = 6 squares total => needed hits
-  enemyShipCount = 6;
+  // Each side has 4+2+3 = 9 squares total => needed hits
+  enemyShipCount = 9;
 
   if (myPlayerNumber === "1") {
     playerBoard.style.pointerEvents   = "auto";
@@ -163,7 +163,7 @@ socket.on("fired", ({ x, y }) => {
     myShipCount--;
     console.log("myShipCount =>", myShipCount);
     if (myShipCount === 0) {
-      addMessage("You Lost (all 6 squares got hit)!");
+      addMessage("You Lost (all 3 ships were sunk)!");
       endGame();
     }
     // respond
@@ -217,8 +217,8 @@ socket.on("rematchStart", () => {
   firedThisTurn     = false;
   shipsPlaced       = 0;
   isDonePlacing     = false;
-  myShipCount       = 0; // We have to place 6 squares of ships
-  enemyShipCount    = 6; // Opponent also has 6
+  myShipCount       = 0; // We have to place 9 squares of ships
+  enemyShipCount    = 9; // Opponent also has 9
   myShipCells.clear();
 
   // Re-enable the Ready button
@@ -261,15 +261,15 @@ readyBtn.addEventListener("click", () => {
 });
 
 doneBtn.addEventListener("click", () => {
-  // We have 3 ships => total squares = 6
+  // We have 3 ships => total squares = 9
   // so once we've placed all 3 ships, we can do:
   if (shipsPlaced === 3) {
     isDonePlacing = true;
     doneBtn.disabled = true;
     socket.emit("playerDone");
 
-    // we have 6 squares total
-    myShipCount = 6;
+    // we have 9 squares total
+    myShipCount = 9;
 
     // disable board
     if (myPlayerNumber === "1") {
@@ -400,7 +400,7 @@ function createBoard(board, prefix) {
       shipsPlaced++;
       console.log(`Placed ship of length=${length}, shipsPlaced=${shipsPlaced}`);
       if (shipsPlaced === maxShips) {
-        addMessage("All your ships placed (6 squares)!");
+        addMessage("All 3 of your ships have been placed (9 squares)!");
         doneBtn.disabled = false;
       }
     });
