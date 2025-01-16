@@ -38,6 +38,13 @@ If both players decide to rematch, the game restarts from the beginning.
 <img width="734" alt="Screenshot 2025-01-15 at 10 31 48 PM" src="https://github.com/user-attachments/assets/1965f3f3-c5e3-459d-b530-3b1da230a965" />
 
 
+On the lefthand side of the screen there is a chat bar where both players can talk to one another. Be kind.
+
+<img width="321" alt="Screenshot 2025-01-15 at 10 39 00 PM" src="https://github.com/user-attachments/assets/8c39fac4-aff6-4d7e-9e09-2fe4825b26e0" />
+
+
+
+
 
 
 
